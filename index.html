@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- ── Primary meta ── -->
+  <title>PennyFlow PRO</title>
+  <meta name="description" content="Track expenses and income with a beautiful offline-ready personal finance app." />
+  <meta name="author" content="PennyFlow" />
+
+  <!-- ── PWA / Theme ── -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#07080d" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- ── Apple PWA meta ── -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PennyFlow" />
+  <link rel="apple-touch-icon" href="icons/icon-152.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png" />
+
+  <!-- ── Favicon ── -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+
+  <!-- ── Chart.js (CDN — will be cached by SW after first load) ── -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+
+  <!-- ── Google Fonts ── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ═══════════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════════ */
+    :root {
+      --bg:         #07080d;
+      --surface:    #0e1117;
+      --surface-2:  #161b27;
+      --border:     #1e2535;
+      --accent:     #6ee7b7;
+      --accent-dim: rgba(110,231,183,.12);
+      --danger:     #f87171;
+      --text:       #e2e8f0;
+      --muted:      #64748b;
+      --radius:     14px;
+      --font-d: 'Syne', sans-serif;
+      --font-b: 'DM Sans', sans-serif;
+      /* Safe area for notched phones */
+      --safe-top:    env(safe-area-inset-top,    0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-b);
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100dvh;
+      /* Padding for iOS status bar + home indicator */
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    /* Subtle dot-grid texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle, #1e2535 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: .4;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       APP WRAPPER
+    ═══════════════════════════════════════════════════════ */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 20px 16px 80px; /* bottom pad for mobile FAB */
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       OFFLINE BANNER
+    ═══════════════════════════════════════════════════════ */
+    #offline-banner {
+      display: none;
+      position: fixed;
+      top: calc(var(--safe-top) + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 18px;
+      font-size: .78rem;
+      color: var(--muted);
+      z-index: 300;
+      white-space: nowrap;
+    }
+    #offline-banner.visible { display: block; }
+
+    /* ═══════════════════════════════════════════════════════
+       INSTALL BANNER (Add to Home Screen prompt)
+    ═══════════════════════════════════════════════════════ */
+    #install-banner {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      animation: slideDown .3s ease;
+    }
+    #install-banner.visible { display: flex; }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    #install-banner .ib-icon { font-size: 1.6rem; flex-shrink: 0; }
+    #install-banner .ib-text { flex: 1; }
+    #install-banner .ib-title { font-weight: 600; font-size: .9rem; }
+    #install-banner .ib-sub   { font-size: .75rem; color: var(--muted); }
+    #install-banner .ib-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: var(--font-b);
+    }
+    #install-banner .ib-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 2px 4px;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════════════════ */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: var(--accent);
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      font-size: 19px;
+      flex-shrink: 0;
+    }
+    .logo h1 {
+      font-family: var(--font-d);
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1;
+    }
+    .logo-sub {
+      font-size: .6rem;
+      font-weight: 500;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* Header stats (desktop) */
+    .header-stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 14px;
+      font-size: .75rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .stat-chip strong {
+      display: block;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       MOBILE SUMMARY BAR (shown on small screens)
+    ═══════════════════════════════════════════════════════ */
+    .mobile-summary {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .ms-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .ms-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    .ms-value { font-family: var(--font-d); font-size: .95rem; font-weight: 800; margin-top: 2px; }
+    .ms-value.expense { color: var(--danger); }
+    .ms-value.income  { color: var(--accent); }
+    .ms-value.balance.pos { color: var(--accent); }
+    .ms-value.balance.neg { color: var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════
+       MAIN LAYOUT GRID
+    ═══════════════════════════════════════════════════════ */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+    /* ═══════════════════════════════════════════════════════
+       CARD
+    ═══════════════════════════════════════════════════════ */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .card-title {
+      font-family: var(--font-d);
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       FORM
+    ═══════════════════════════════════════════════════════ */
+    .type-toggle {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .type-btn {
+      flex: 1;
+      padding: 9px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-b);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .type-btn.active-expense {
+      background: rgba(248,113,113,.13);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .type-btn.active-income {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .field { margin-bottom: 10px; }
+    .field label {
+      display: block;
+      font-size: .74rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 4px;
+      letter-spacing: .04em;
+    }
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--text);
+      font-family: var(--font-b);
+      font-size: .92rem;
+      transition: border-color .18s, box-shadow .18s;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .field input::placeholder { color: var(--muted); }
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(110,231,183,.13);
+    }
+    /* Coloured dot inside category select */
+    .cat-wrap { position: relative; }
+    .cat-dot {
+      position: absolute;
+      left: 11px; top: 50%;
+      transform: translateY(-50%);
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      pointer-events: none;
+      transition: background .18s;
+    }
+    .cat-wrap select { padding-left: 27px; }
+
+    /* Validation */
+    .field-error { font-size: .72rem; color: var(--danger); margin-top: 3px; display: none; }
+    .field.invalid .field-error { display: block; }
+    .field.invalid input,
+    .field.invalid select { border-color: var(--danger); }
+
+    /* Add button */
+    .add-btn {
+      width: 100%; padding: 12px;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 10px;
+      font-family: var(--font-b); font-size: .92rem; font-weight: 700;
+      cursor: pointer;
+      transition: opacity .18s, transform .1s;
+      margin-top: 6px;
+      letter-spacing: .01em;
+    }
+    .add-btn:hover  { opacity: .85; }
+    .add-btn:active { transform: scale(.97); }
+
+    /* ═══════════════════════════════════════════════════════
+       TRANSACTION LIST
+    ═══════════════════════════════════════════════════════ */
+    .tx-list {
+      display: flex; flex-direction: column; gap: 7px;
+      max-height: 300px; overflow-y: auto;
+    }
+    .tx-list::-webkit-scrollbar { width: 3px; }
+    .tx-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .tx-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 11px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      animation: fadeUp .22s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(-5px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .tx-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .tx-info { flex:1; min-width:0; }
+    .tx-reason {
+      font-size: .84rem; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tx-meta { font-size: .7rem; color: var(--muted); }
+    .tx-amount { font-size: .88rem; font-weight: 600; flex-shrink:0; }
+    .tx-amount.expense { color: var(--danger); }
+    .tx-amount.income  { color: var(--accent); }
+    .tx-del {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: .95rem; padding: 2px 5px;
+      border-radius: 4px; transition: color .15s; flex-shrink:0;
+    }
+    .tx-del:hover { color: var(--danger); }
+    .empty-state { text-align:center; padding:18px; color:var(--muted); font-size:.82rem; }
+
+    /* ═══════════════════════════════════════════════════════
+       CALENDAR
+    ═══════════════════════════════════════════════════════ */
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .month-title {
+      font-family: var(--font-d);
+      font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
+    }
+    .nav-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 34px; height: 34px;
+      border-radius: 8px; font-size: 1rem;
+      cursor: pointer; display:grid; place-items:center;
+      transition: border-color .18s, background .18s;
+    }
+    .nav-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+
+    /* Weekday labels */
+    .weekdays {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      gap:5px; margin-bottom:5px;
+    }
+    .weekday {
+      text-align:center; font-size:.62rem; font-weight:600;
+      color:var(--muted); letter-spacing:.06em; text-transform:uppercase;
+    }
+
+    /* Day grid */
+    .days-grid {
+      display: grid; grid-template-columns: repeat(7,1fr); gap:5px;
+    }
+    .day-cell {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 7px 5px; min-height: 66px;
+      display: flex; flex-direction: column;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: border-color .18s, background .18s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .day-cell:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .day-cell.today { border-color: var(--accent); }
+    .day-cell.today .day-num::after {
+      content: ''; display: inline-block;
+      width:4px; height:4px; border-radius:50%;
+      background: var(--accent); margin-left:3px; vertical-align:middle;
+    }
+    .day-cell::after {
+      content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+    }
+    .day-cell.has-expense::after  { background: var(--danger); opacity:.7; }
+    .day-cell.has-income::after   { background: var(--accent); opacity:.7; }
+    .day-cell.has-both::after     {
+      background: linear-gradient(90deg, var(--danger) 50%, var(--accent) 50%);
+      opacity:.7;
+    }
+    .day-cell.empty-day {
+      background:transparent; border-color:transparent; pointer-events:none;
+    }
+    .day-num { font-size:.72rem; font-weight:600; color:var(--muted); margin-bottom:3px; }
+    .day-amount { font-size:.65rem; font-weight:500; margin-top:auto; }
+    .day-amount.exp { color:var(--danger); }
+    .day-amount.inc { color:var(--accent); }
+
+    /* ═══════════════════════════════════════════════════════
+       MONTH SUMMARY ROW
+    ═══════════════════════════════════════════════════════ */
+    .summary-row {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px;
+    }
+    .sum-card {
+      background:var(--surface-2); border:1px solid var(--border);
+      border-radius:10px; padding:12px 10px; text-align:center;
+    }
+    .sum-label { font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:3px; }
+    .sum-value { font-family:var(--font-d); font-size:1.05rem; font-weight:800; }
+    .sum-value.expense { color:var(--danger); }
+    .sum-value.income  { color:var(--accent); }
+    .sum-value.pos     { color:var(--accent); }
+    .sum-value.neg     { color:var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════
+       CHART
+    ═══════════════════════════════════════════════════════ */
+    .chart-wrap {
+      margin-top:16px; padding:14px;
+      background:var(--surface-2); border:1px solid var(--border); border-radius:11px;
+    }
+    .chart-top {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+    }
+    .chart-lbl { font-size:.7rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+    .ctoggle { display:flex; gap:4px; }
+    .ctog-btn {
+      padding:4px 10px; border-radius:6px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--muted); font-size:.7rem; font-family:var(--font-b);
+      cursor:pointer; transition:all .18s;
+    }
+    .ctog-btn.active {
+      background:var(--accent-dim); border-color:var(--accent); color:var(--accent);
+    }
+    #expenseChart { max-height:210px; }
+
+    /* ═══════════════════════════════════════════════════════
+       DAY DETAIL MODAL
+    ═══════════════════════════════════════════════════════ */
+    .modal-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,.72); backdrop-filter:blur(5px);
+      z-index:100; place-items:center; padding:20px;
+    }
+    .modal-overlay.open { display:grid; }
+    .modal {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); padding:22px;
+      width:100%; max-width:400px;
+      animation: mIn .2s ease;
+      max-height: 80dvh; overflow-y: auto;
+    }
+    @keyframes mIn {
+      from { opacity:0; transform:scale(.94) translateY(14px); }
+      to   { opacity:1; transform:scale(1) translateY(0); }
+    }
+    .modal-head {
+      display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;
+    }
+    .modal-title { font-family:var(--font-d); font-size:1.05rem; font-weight:800; }
+    .modal-close {
+      background:none; border:none; color:var(--muted);
+      font-size:1.2rem; cursor:pointer; line-height:1; padding:2px 5px;
+      transition:color .15s;
+    }
+    .modal-close:hover { color:var(--text); }
+
+    /* ═══════════════════════════════════════════════════════
+       MOBILE FAB (Floating Add Button — bottom sheet trigger)
+    ═══════════════════════════════════════════════════════ */
+    .fab {
+      display: none;
+      position: fixed;
+      bottom: calc(20px + var(--safe-bottom));
+      right: 20px;
+      width: 56px; height: 56px;
+      background: var(--accent);
+      border-radius: 50%; border: none;
+      font-size: 1.6rem; color: #000;
+      cursor: pointer; z-index: 50;
+      box-shadow: 0 4px 20px rgba(110,231,183,.35);
+      transition: transform .18s, box-shadow .18s;
+      display: grid; place-items: center;
+    }
+    .fab:hover  { transform: scale(1.07); }
+    .fab:active { transform: scale(.95); }
+
+    /* ═══════════════════════════════════════════════════════
+       MOBILE BOTTOM SHEET (form)
+    ═══════════════════════════════════════════════════════ */
+    .sheet-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,.65); backdrop-filter:blur(4px); z-index:90;
+    }
+    .sheet-overlay.open { display:block; }
+    .bottom-sheet {
+      position:fixed; bottom:0; left:0; right:0;
+      background:var(--surface); border-top:1px solid var(--border);
+      border-radius:18px 18px 0 0;
+      padding:20px 20px calc(20px + var(--safe-bottom));
+      z-index:91;
+      transform:translateY(100%);
+      transition:transform .3s cubic-bezier(.4,0,.2,1);
+      max-height: 90dvh; overflow-y: auto;
+    }
+    .bottom-sheet.open { transform:translateY(0); }
+    .sheet-handle {
+      width:40px; height:4px; border-radius:2px;
+      background:var(--border); margin:0 auto 16px;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       TOAST
+    ═══════════════════════════════════════════════════════ */
+    .toast {
+      position:fixed; bottom:calc(80px + var(--safe-bottom)); left:50%;
+      transform:translateX(-50%) translateY(30px);
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:20px; padding:9px 20px;
+      font-size:.82rem; font-weight:500; z-index:200;
+      transition:transform .28s ease, opacity .28s ease;
+      opacity:0; pointer-events:none; white-space:nowrap;
+    }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .toast.success { border-color:var(--accent); color:var(--accent); }
+    .toast.error   { border-color:var(--danger); color:var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .sidebar   { order: 2; }            /* form goes below calendar */
+      .cal-col   { order: 1; }
+      .header-stats { display: none; }    /* use mobile summary instead */
+      .mobile-summary { display: grid; }
+      /* Hide desktop sidebar form — use FAB + bottom sheet instead */
+      .sidebar .card:first-child { display: none; }
+    }
+
+    @media (max-width: 540px) {
+      .app { padding: 14px 12px 80px; }
+      .days-grid { gap: 3px; }
+      .day-cell  { min-height: 54px; padding: 5px 3px; border-radius: 7px; }
+      .day-num   { font-size: .62rem; }
+      .day-amount { font-size: .58rem; }
+      .summary-row { gap: 6px; }
+      .sum-value { font-size: .9rem; }
+    }
+
+    @media (min-width: 901px) {
+      /* On desktop, hide FAB and sheet */
+      .fab { display: none !important; }
+      .sheet-overlay, .bottom-sheet { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Offline indicator ── -->
+<div id="offline-banner">⚡ Offline mode — data is saved locally</div>
+
+<div class="app">
+
+  <!-- ── Install prompt banner ── -->
+  <div id="install-banner" role="alert">
+    <div class="ib-icon">💸</div>
+    <div class="ib-text">
+      <div class="ib-title">Install PennyFlow PRO</div>
+      <div class="ib-sub">Add to your home screen for the full app experience</div>
+    </div>
+    <button class="ib-btn" id="installBtn">Install</button>
+    <button class="ib-close" id="installDismiss" aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">💸</div>
+      <div>
+        <h1>PennyFlow</h1>
+        <span class="logo-sub">PRO — Expense Tracker</span>
+      </div>
+    </div>
+    <!-- Desktop stats chips -->
+    <div class="header-stats">
+      <div class="stat-chip">Spent<strong id="hExp">₹0.00</strong></div>
+      <div class="stat-chip">Earned<strong id="hInc">₹0.00</strong></div>
+      <div class="stat-chip">Balance<strong id="hBal">₹0.00</strong></div>
+    </div>
+  </header>
+
+  <!-- ── Mobile summary bar ── -->
+  <div class="mobile-summary">
+    <div class="ms-card">
+      <div class="ms-label">Spent</div>
+      <div class="ms-value expense" id="msExp">₹0</div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-label">Earned</div>
+      <div class="ms-value income" id="msInc">₹0</div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-label">Balance</div>
+      <div class="ms-value balance pos" id="msBal">₹0</div>
+    </div>
+  </div>
+
+  <!-- ── Main grid ── -->
+  <div class="main-grid">
+
+    <!-- Sidebar (desktop) -->
+    <div class="sidebar">
+
+      <!-- Add Transaction form (desktop only — hidden on mobile, use FAB) -->
+      <div class="card" aria-label="Add transaction form">
+        <div class="card-title">Add Transaction</div>
+        <!-- Reuses shared form markup via ID; JS reads from here on desktop -->
+        <div id="desk-form-mount"></div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="card">
+        <div class="card-title">Recent Transactions</div>
+        <div class="tx-list" id="txList" aria-live="polite"></div>
+      </div>
+
+    </div>
+
+    <!-- Calendar column -->
+    <div class="cal-col">
+      <div class="card">
+
+        <!-- Month nav -->
+        <div class="cal-header">
+          <button class="nav-btn" id="prevBtn" aria-label="Previous month">&#8592;</button>
+          <div class="month-title" id="monthYear" aria-live="polite"></div>
+          <button class="nav-btn" id="nextBtn" aria-label="Next month">&#8594;</button>
+        </div>
+
+        <!-- Weekday headers -->
+        <div class="weekdays" aria-hidden="true">
+          <div class="weekday">Su</div><div class="weekday">Mo</div>
+          <div class="weekday">Tu</div><div class="weekday">We</div>
+          <div class="weekday">Th</div><div class="weekday">Fr</div>
+          <div class="weekday">Sa</div>
+        </div>
+
+        <!-- Day grid -->
+        <div class="days-grid" id="calendarDays" role="grid"></div>
+
+        <!-- Monthly totals -->
+        <div class="summary-row">
+          <div class="sum-card">
+            <div class="sum-label">Expenses</div>
+            <div class="sum-value expense" id="totalExpense">₹0.00</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-label">Income</div>
+            <div class="sum-value income" id="totalIncome">₹0.00</div>
+          </div>
+          <div class="sum-card">
+            <div class="sum-label">Balance</div>
+            <div class="sum-value pos" id="totalBalance">₹0.00</div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-wrap">
+          <div class="chart-top">
+            <div class="chart-lbl">Category Breakdown</div>
+            <div class="ctoggle">
+              <button class="ctog-btn active" id="ctD" onclick="setChartType('doughnut')">Donut</button>
+              <button class="ctog-btn"         id="ctB" onclick="setChartType('bar')">Bar</button>
+            </div>
+          </div>
+          <canvas id="expenseChart" role="img" aria-label="Expense breakdown chart"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+</div><!-- /app -->
+
+<!-- ── FAB (mobile only) ── -->
+<button class="fab" id="fabBtn" aria-label="Add transaction">＋</button>
+
+<!-- ── Bottom sheet (mobile form) ── -->
+<div class="sheet-overlay" id="sheetOverlay"></div>
+<div class="bottom-sheet" id="bottomSheet" role="dialog" aria-modal="true" aria-label="Add transaction">
+  <div class="sheet-handle"></div>
+  <div class="card-title" style="margin-bottom:14px">Add Transaction</div>
+  <div id="mob-form-mount"></div>
+</div>
+
+<!-- ── Day Detail Modal ── -->
+<div class="modal-overlay" id="modalOverlay" role="dialog"
+  aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" id="modalClose" aria-label="Close">&#x2715;</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SHARED FORM TEMPLATE (cloned into desktop + mobile mounts)
+════════════════════════════════════════════════════════════ -->
+<template id="formTpl">
+  <!-- Income / Expense toggle -->
+  <div class="type-toggle" role="group" aria-label="Transaction type">
+    <button class="type-btn active-expense" data-type="expense"
+      onclick="setType('expense',this)" aria-pressed="true">− Expense</button>
+    <button class="type-btn" data-type="income"
+      onclick="setType('income',this)" aria-pressed="false">+ Income</button>
+  </div>
+
+  <div class="field" data-field="reason">
+    <label>Description</label>
+    <input type="text" data-id="reason" placeholder="e.g. Lunch, Rent…" maxlength="80" autocomplete="off" />
+    <div class="field-error">Please enter a description.</div>
+  </div>
+
+  <div class="field" data-field="amount">
+    <label>Amount (₹)</label>
+    <input type="number" data-id="amount" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" />
+    <div class="field-error">Enter an amount greater than 0.</div>
+  </div>
+
+  <div class="field">
+    <label>Category</label>
+    <div class="cat-wrap">
+      <div class="cat-dot" data-id="catDot"></div>
+      <select data-id="category" onchange="syncCatDot(this)">
+        <option value="Food">🍽 Food</option>
+        <option value="Travel">✈️ Travel</option>
+        <option value="Shopping">🛍 Shopping</option>
+        <option value="Bills">🧾 Bills</option>
+        <option value="Health">❤️ Health</option>
+        <option value="Other">📦 Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Date</label>
+    <input type="date" data-id="date" />
+  </div>
+
+  <button class="add-btn" onclick="handleAddFromForm(this)">Add Transaction</button>
+</template>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   STATE & CONSTANTS
+════════════════════════════════════════════════════════════ */
+const CAT_COLORS = {
+  Food:'#6ee7b7', Travel:'#60a5fa', Shopping:'#f472b6',
+  Bills:'#fb923c', Health:'#a78bfa', Other:'#94a3b8'
+};
+
+/* Migrate legacy key */
+(function() {
+  const old = localStorage.getItem('data');
+  if (old && !localStorage.getItem('pf_tx')) {
+    try {
+      const parsed = JSON.parse(old);
+      localStorage.setItem('pf_tx', JSON.stringify(
+        parsed.map(e => ({ ...e, type: e.type || 'expense', id: e.id || Date.now() }))
+      ));
+    } catch(e) {}
+  }
+})();
+
+let allTx       = JSON.parse(localStorage.getItem('pf_tx') || '[]');
+let curDate     = new Date();
+let chartType   = 'doughnut';
+let chartInst   = null;
+let deferredPWA = null;   // BeforeInstallPromptEvent
+
+const save = () => localStorage.setItem('pf_tx', JSON.stringify(allTx));
+const fmt  = n  => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const esc  = s  => String(s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ════════════════════════════════════════════════════════════
+   FORM: mount into desktop & mobile slots
+════════════════════════════════════════════════════════════ */
+function mountForms() {
+  ['desk-form-mount', 'mob-form-mount'].forEach(id => {
+    const tpl   = document.getElementById('formTpl');
+    const clone = tpl.content.cloneNode(true);
+    // Set today's date
+    clone.querySelector('[data-id="date"]').value = todayStr();
+    // Init dot colour
+    const dot = clone.querySelector('[data-id="catDot"]');
+    dot.style.background = CAT_COLORS['Food'];
+    document.getElementById(id).appendChild(clone);
+  });
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+/* Read values from whichever form is active (visible) */
+function activeForm() {
+  const isMobile = window.innerWidth <= 900;
+  const mount = document.getElementById(isMobile ? 'mob-form-mount' : 'desk-form-mount');
+  return mount;
+}
+
+function getField(form, id) { return form.querySelector(`[data-id="${id}"]`); }
+
+/* ════════════════════════════════════════════════════════════
+   TYPE TOGGLE
+════════════════════════════════════════════════════════════ */
+function setType(type, clickedBtn) {
+  /* Update ALL form mounts so they stay in sync */
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    const t = btn.getAttribute('data-type');
+    btn.className = 'type-btn' + (t === type ? ` active-${t}` : '');
+    btn.setAttribute('aria-pressed', t === type);
+  });
+}
+
+function currentType() {
+  const btn = document.querySelector('#desk-form-mount .type-btn[aria-pressed="true"]') ||
+              document.querySelector('#mob-form-mount  .type-btn[aria-pressed="true"]');
+  return btn ? btn.getAttribute('data-type') : 'expense';
+}
+
+/* ════════════════════════════════════════════════════════════
+   CATEGORY DOT SYNC
+════════════════════════════════════════════════════════════ */
+function syncCatDot(selectEl) {
+  const cat = selectEl.value;
+  const wrap = selectEl.closest('.cat-wrap');
+  wrap.querySelector('.cat-dot').style.background = CAT_COLORS[cat] || CAT_COLORS.Other;
+}
+
+/* ════════════════════════════════════════════════════════════
+   VALIDATION
+════════════════════════════════════════════════════════════ */
+function validateForm(form) {
+  let ok = true;
+
+  const rField = form.querySelector('[data-field="reason"]');
+  const aField = form.querySelector('[data-field="amount"]');
+  const rInput = getField(form, 'reason');
+  const aInput = getField(form, 'amount');
+
+  rField.classList.remove('invalid');
+  aField.classList.remove('invalid');
+
+  if (!rInput.value.trim()) { rField.classList.add('invalid'); ok = false; }
+  const amt = parseFloat(aInput.value);
+  if (!aInput.value || isNaN(amt) || amt <= 0) { aField.classList.add('invalid'); ok = false; }
+
+  return ok;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ADD TRANSACTION
+════════════════════════════════════════════════════════════ */
+function handleAddFromForm(btn) {
+  const form = btn.closest('[id$="-form-mount"]') || btn.closest('[id$="mount"]') ||
+               btn.closest('.bottom-sheet') || btn.closest('.card');
+
+  /* Determine which mounted form this button belongs to */
+  const mount = btn.closest('#desk-form-mount') || btn.closest('#mob-form-mount');
+  if (!mount) return;
+
+  if (!validateForm(mount)) return;
+
+  const reason   = getField(mount, 'reason').value.trim();
+  const amount   = parseFloat(getField(mount, 'amount').value);
+  const category = getField(mount, 'category').value;
+  const date     = getField(mount, 'date').value || todayStr();
+  const type     = currentType();
+
+  allTx.push({ id: Date.now(), reason, amount, category, date, type });
+  save();
+
+  /* Reset form */
+  getField(mount, 'reason').value = '';
+  getField(mount, 'amount').value = '';
+  getField(mount, 'date').value   = todayStr();
+  mount.querySelectorAll('.field').forEach(f => f.classList.remove('invalid'));
+
+  /* Close bottom sheet on mobile */
+  closeSheet();
+
+  renderAll();
+  showToast(type === 'expense' ? 'Expense added ✓' : 'Income recorded ✓', 'success');
+}
+
+/* ════════════════════════════════════════════════════════════
+   DELETE
+════════════════════════════════════════════════════════════ */
+function deleteTx(id) {
+  allTx = allTx.filter(t => t.id !== id);
+  save();
+  renderAll();
+  closeModal();
+  showToast('Entry deleted', 'error');
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════════════════════ */
+function renderAll() {
+  renderCalendar();
+  renderTxList();
+  renderChart();
+  updateSummary();
+  updateHeaderStats();
+}
+
+/* ════════════════════════════════════════════════════════════
+   CALENDAR
+════════════════════════════════════════════════════════════ */
+function renderCalendar() {
+  const month = curDate.getMonth();
+  const year  = curDate.getFullYear();
+  const today = new Date();
+
+  document.getElementById('monthYear').textContent =
+    curDate.toLocaleString('default', { month:'long' }) + ' ' + year;
+
+  /* Build day totals */
+  const dayExp = {}, dayInc = {};
+  allTx.forEach(t => {
+    const [y, m, d] = t.date.split('-').map(Number);
+    if (m - 1 === month && y === year) {
+      if (t.type === 'income') dayInc[d] = (dayInc[d] || 0) + t.amount;
+      else                     dayExp[d] = (dayExp[d] || 0) + t.amount;
+    }
+  });
+
+  const grid = document.getElementById('calendarDays');
+  grid.innerHTML = '';
+
+  const firstDay    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  /* Blank leading cells */
+  for (let i = 0; i < firstDay; i++) {
+    const b = document.createElement('div');
+    b.className = 'day-cell empty-day';
+    b.setAttribute('aria-hidden', 'true');
+    grid.appendChild(b);
+  }
+
+  /* Day cells */
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+    cell.setAttribute('role', 'gridcell');
+    cell.setAttribute('tabindex', '0');
+    cell.setAttribute('aria-label',
+      `${d} ${curDate.toLocaleString('default',{month:'long'})} ${year}`);
+
+    if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear())
+      cell.classList.add('today');
+
+    const hasE = !!dayExp[d], hasI = !!dayInc[d];
+    if (hasE && hasI) cell.classList.add('has-both');
+    else if (hasE)    cell.classList.add('has-expense');
+    else if (hasI)    cell.classList.add('has-income');
+
+    let html = `<div class="day-num">${d}</div>`;
+    if (hasE) html += `<div class="day-amount exp">${fmt(dayExp[d])}</div>`;
+    if (hasI) html += `<div class="day-amount inc">${fmt(dayInc[d])}</div>`;
+    cell.innerHTML = html;
+
+    const cap = d; // closure capture
+    cell.addEventListener('click', () => openDayModal(year, month, cap));
+    cell.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayModal(year, month, cap); }
+    });
+
+    grid.appendChild(cell);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   SUMMARY
+════════════════════════════════════════════════════════════ */
+function getMonthTotals(month, year) {
+  let exp = 0, inc = 0;
+  allTx.forEach(t => {
+    const [y, m] = t.date.split('-').map(Number);
+    if (m - 1 === month && y === year) {
+      if (t.type === 'income') inc += t.amount;
+      else                     exp += t.amount;
+    }
+  });
+  return { exp, inc };
+}
+
+function updateSummary() {
+  const { exp, inc } = getMonthTotals(curDate.getMonth(), curDate.getFullYear());
+  const bal = inc - exp;
+  document.getElementById('totalExpense').textContent = fmt(exp);
+  document.getElementById('totalIncome').textContent  = fmt(inc);
+  const bEl = document.getElementById('totalBalance');
+  bEl.textContent = fmt(Math.abs(bal));
+  bEl.className   = 'sum-value ' + (bal >= 0 ? 'pos' : 'neg');
+}
+
+function updateHeaderStats() {
+  const now = new Date();
+  const { exp, inc } = getMonthTotals(now.getMonth(), now.getFullYear());
+  const bal = inc - exp;
+
+  document.getElementById('hExp').textContent = fmt(exp);
+  document.getElementById('hInc').textContent = fmt(inc);
+  const hb = document.getElementById('hBal');
+  hb.textContent = fmt(Math.abs(bal));
+  hb.style.color = bal >= 0 ? 'var(--accent)' : 'var(--danger)';
+
+  /* Mobile summary */
+  document.getElementById('msExp').textContent = fmt(exp);
+  document.getElementById('msInc').textContent = fmt(inc);
+  const mb = document.getElementById('msBal');
+  mb.textContent = fmt(Math.abs(bal));
+  mb.className   = 'ms-value balance ' + (bal >= 0 ? 'pos' : 'neg');
+}
+
+/* ════════════════════════════════════════════════════════════
+   TRANSACTION LIST
+════════════════════════════════════════════════════════════ */
+function renderTxList() {
+  const month = curDate.getMonth(), year = curDate.getFullYear();
+  const monthTx = allTx
+    .filter(t => { const [y,m] = t.date.split('-').map(Number); return m-1===month && y===year; })
+    .sort((a,b) => b.id - a.id)
+    .slice(0, 25);
+
+  const list = document.getElementById('txList');
+  list.innerHTML = '';
+
+  if (!monthTx.length) {
+    list.innerHTML = '<div class="empty-state">No transactions this month</div>';
+    return;
+  }
+
+  monthTx.forEach(t => {
+    const item  = document.createElement('div');
+    item.className = 'tx-item';
+    const color = CAT_COLORS[t.category] || CAT_COLORS.Other;
+    const sign  = t.type === 'income' ? '+' : '−';
+    item.innerHTML = `
+      <div class="tx-dot" style="background:${color}"></div>
+      <div class="tx-info">
+        <div class="tx-reason">${esc(t.reason)}</div>
+        <div class="tx-meta">${t.date} · ${t.category}</div>
+      </div>
+      <div class="tx-amount ${t.type}">${sign}${fmt(t.amount)}</div>
+      <button class="tx-del" onclick="deleteTx(${t.id})" aria-label="Delete ${esc(t.reason)}">✕</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHART
+════════════════════════════════════════════════════════════ */
+function setChartType(type) {
+  chartType = type;
+  document.getElementById('ctD').className = 'ctog-btn' + (type==='doughnut' ? ' active' : '');
+  document.getElementById('ctB').className = 'ctog-btn' + (type==='bar'      ? ' active' : '');
+  renderChart();
+}
+
+function renderChart() {
+  const month = curDate.getMonth(), year = curDate.getFullYear();
+  const data  = {};
+  allTx.forEach(t => {
+    if (t.type !== 'expense') return;
+    const [y,m] = t.date.split('-').map(Number);
+    if (m-1===month && y===year) data[t.category] = (data[t.category]||0) + t.amount;
+  });
+
+  const labels = Object.keys(data);
+  const values = Object.values(data);
+  const colors = labels.map(l => CAT_COLORS[l] || CAT_COLORS.Other);
+  const ctx    = document.getElementById('expenseChart');
+
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+
+  if (!labels.length) { ctx.style.display = 'none'; return; }
+  ctx.style.display = '';
+
+  chartInst = new Chart(ctx, {
+    type: chartType,
+    data: {
+      labels,
+      datasets: [{
+        label: 'Expenses',
+        data: values,
+        backgroundColor: colors.map(c => c + 'bb'),
+        borderColor: colors,
+        borderWidth: 1.5,
+        borderRadius: chartType === 'bar' ? 6 : 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: chartType === 'doughnut',
+          labels: { color:'#94a3b8', font:{ family:'DM Sans', size:11 }, boxWidth:10, padding:10 }
+        },
+        tooltip: { callbacks: { label: c => ` ${fmt(c.parsed || c.raw)}` } }
+      },
+      scales: chartType === 'bar' ? {
+        x: { ticks:{ color:'#64748b', font:{family:'DM Sans',size:11} }, grid:{ color:'#1e2535' } },
+        y: { ticks:{ color:'#64748b', font:{family:'DM Sans',size:11}, callback: v=>'₹'+v }, grid:{ color:'#1e2535' } }
+      } : {}
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   DAY MODAL
+════════════════════════════════════════════════════════════ */
+function openDayModal(year, month, day) {
+  const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  const dayTx   = allTx.filter(t => t.date === dateStr);
+
+  document.getElementById('modalTitle').textContent =
+    `${day} ${new Date(year,month).toLocaleString('default',{month:'long'})} ${year}`;
+
+  const body = document.getElementById('modalBody');
+  if (!dayTx.length) {
+    body.innerHTML = '<div class="empty-state">No transactions on this day.</div>';
+  } else {
+    body.innerHTML = dayTx.map(t => {
+      const color = CAT_COLORS[t.category] || CAT_COLORS.Other;
+      const sign  = t.type === 'income' ? '+' : '−';
+      return `
+        <div class="tx-item" style="margin-bottom:8px">
+          <div class="tx-dot" style="background:${color}"></div>
+          <div class="tx-info">
+            <div class="tx-reason">${esc(t.reason)}</div>
+            <div class="tx-meta">${t.category}</div>
+          </div>
+          <div class="tx-amount ${t.type}">${sign}${fmt(t.amount)}</div>
+          <button class="tx-del" onclick="deleteTx(${t.id})" aria-label="Delete ${esc(t.reason)}">✕</button>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+
+/* ════════════════════════════════════════════════════════════
+   BOTTOM SHEET (mobile FAB)
+════════════════════════════════════════════════════════════ */
+function openSheet() {
+  document.getElementById('sheetOverlay').classList.add('open');
+  document.getElementById('bottomSheet').classList.add('open');
+}
+function closeSheet() {
+  document.getElementById('sheetOverlay').classList.remove('open');
+  document.getElementById('bottomSheet').classList.remove('open');
+}
+
+document.getElementById('fabBtn').addEventListener('click', openSheet);
+document.getElementById('sheetOverlay').addEventListener('click', closeSheet);
+
+/* ════════════════════════════════════════════════════════════
+   MONTH NAVIGATION
+════════════════════════════════════════════════════════════ */
+document.getElementById('prevBtn').addEventListener('click', () => {
+  curDate.setMonth(curDate.getMonth() - 1); renderAll();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  curDate.setMonth(curDate.getMonth() + 1); renderAll();
+});
+
+/* ════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeSheet(); }
+});
+
+/* ════════════════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════════════════ */
+let toastTimer;
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  t.textContent = msg;
+  t.className   = `toast ${type} show`;
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
+}
+
+/* ════════════════════════════════════════════════════════════
+   OFFLINE DETECTION
+════════════════════════════════════════════════════════════ */
+function updateOnlineStatus() {
+  const banner = document.getElementById('offline-banner');
+  if (!navigator.onLine) banner.classList.add('visible');
+  else                   banner.classList.remove('visible');
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+/* ════════════════════════════════════════════════════════════
+   PWA INSTALL PROMPT
+════════════════════════════════════════════════════════════ */
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPWA = e;
+
+  /* Don't show if user already dismissed */
+  if (!localStorage.getItem('pf_install_dismissed')) {
+    document.getElementById('install-banner').classList.add('visible');
+  }
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredPWA) return;
+  deferredPWA.prompt();
+  const { outcome } = await deferredPWA.userChoice;
+  if (outcome === 'accepted') showToast('App installed! 🎉', 'success');
+  deferredPWA = null;
+  document.getElementById('install-banner').classList.remove('visible');
+});
+
+document.getElementById('installDismiss').addEventListener('click', () => {
+  document.getElementById('install-banner').classList.remove('visible');
+  localStorage.setItem('pf_install_dismissed', '1');
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('visible');
+  showToast('PennyFlow installed ✓', 'success');
+});
+
+/* ════════════════════════════════════════════════════════════
+   SERVICE WORKER REGISTRATION
+════════════════════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[PWA] SW registered, scope:', reg.scope))
+      .catch(err => console.warn('[PWA] SW registration failed:', err));
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════ */
+mountForms();          // Clone form into desktop + mobile slots
+updateOnlineStatus();  // Check initial network state
+renderAll();           // First paint
+</script>
+
+</body>
+</html>
