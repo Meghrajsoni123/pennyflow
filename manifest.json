@@ -1,7 +1,7 @@
 {
   "name": "PennyFlow PRO",
   "short_name": "PennyFlow",
-  "description": "A modern personal expense & income tracker with offline support.",
+  "description": "A modern personal expense & income tracker with offline support, trash recovery, and transaction notes.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "theme_color": "#07080d",
   "background_color": "#07080d",
   "lang": "en",
-  "categories": ["finance", "productivity"],
+  "categories": ["finance", "productivity", "lifestyle"],
   "icons": [
     { "src": "icons/icon-72.png",  "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
     { "src": "icons/icon-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
@@ -27,6 +27,13 @@
       "short_name": "Expense",
       "description": "Quickly add a new expense",
       "url": "./index.html#add",
+      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Trash",
+      "short_name": "Trash",
+      "description": "View recently deleted transactions",
+      "url": "./index.html#trash",
       "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
     }
   ]
