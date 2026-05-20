@@ -8,6 +8,7 @@
   <title>PennyFlow PRO</title>
   <meta name="description" content="Track expenses and income with a beautiful offline-ready personal finance app." />
   <meta name="author" content="PennyFlow" />
+  <meta name="keywords" content="expense tracker, budget, finance, income, offline" />
 
   <!-- ── PWA / Theme ── -->
   <link rel="manifest" href="manifest.json" />
@@ -24,43 +25,48 @@
   <!-- ── Favicon ── -->
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
 
-  <!-- ── Chart.js (CDN — will be cached by SW after first load) ── -->
+  <!-- ── Chart.js (CDN — cached by SW after first load) ── -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 
   <!-- ── Google Fonts ── -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
 
   <style>
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        DESIGN TOKENS
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     :root {
-      --bg:         #07080d;
-      --surface:    #0e1117;
-      --surface-2:  #161b27;
-      --border:     #1e2535;
-      --accent:     #6ee7b7;
-      --accent-dim: rgba(110,231,183,.12);
-      --danger:     #f87171;
-      --text:       #e2e8f0;
-      --muted:      #64748b;
-      --radius:     14px;
-      --font-d: 'Syne', sans-serif;
-      --font-b: 'DM Sans', sans-serif;
-      /* Safe area for notched phones */
+      --bg:          #07080d;
+      --surface:     #0e1117;
+      --surface-2:   #161b27;
+      --surface-3:   #1c2235;
+      --border:      #1e2535;
+      --border-2:    #263047;
+      --accent:      #6ee7b7;
+      --accent-dim:  rgba(110,231,183,.12);
+      --accent-glow: rgba(110,231,183,.25);
+      --danger:      #f87171;
+      --danger-dim:  rgba(248,113,113,.12);
+      --warn:        #fbbf24;
+      --text:        #e2e8f0;
+      --muted:       #64748b;
+      --muted-2:     #94a3b8;
+      --radius:      14px;
+      --radius-sm:   9px;
+      --font-d:      'Syne', sans-serif;
+      --font-b:      'DM Sans', sans-serif;
       --safe-top:    env(safe-area-inset-top,    0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --trans:       all .18s cubic-bezier(.4,0,.2,1);
     }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        RESET & BASE
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { scroll-behavior: smooth; }
-
     body {
       background: var(--bg);
       color: var(--text);
@@ -68,570 +74,595 @@
       font-size: 15px;
       line-height: 1.6;
       min-height: 100dvh;
-      /* Padding for iOS status bar + home indicator */
       padding-top: var(--safe-top);
       padding-bottom: var(--safe-bottom);
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior: none;
     }
-
     /* Subtle dot-grid texture */
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        radial-gradient(circle, #1e2535 1px, transparent 1px);
+      position: fixed; inset: 0;
+      background-image: radial-gradient(circle, #1e2535 1px, transparent 1px);
       background-size: 28px 28px;
       opacity: .4;
       pointer-events: none;
       z-index: 0;
     }
+    button { font-family: var(--font-b); cursor: pointer; }
+    textarea { font-family: var(--font-b); }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        APP WRAPPER
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     .app {
-      position: relative;
-      z-index: 1;
-      max-width: 1300px;
-      margin: 0 auto;
-      padding: 20px 16px 80px; /* bottom pad for mobile FAB */
+      position: relative; z-index: 1;
+      max-width: 1300px; margin: 0 auto;
+      padding: 20px 16px 90px;
     }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        OFFLINE BANNER
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     #offline-banner {
       display: none;
       position: fixed;
       top: calc(var(--safe-top) + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1e293b;
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 6px 18px;
-      font-size: .78rem;
-      color: var(--muted);
-      z-index: 300;
-      white-space: nowrap;
+      left: 50%; transform: translateX(-50%);
+      background: #1e293b; border: 1px solid var(--border);
+      border-radius: 20px; padding: 6px 18px;
+      font-size: .78rem; color: var(--muted);
+      z-index: 300; white-space: nowrap;
     }
     #offline-banner.visible { display: block; }
 
-    /* ═══════════════════════════════════════════════════════
-       INSTALL BANNER (Add to Home Screen prompt)
-    ═══════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       INSTALL BANNER
+    ═══════════════════════════════════════════════════ */
     #install-banner {
-      display: none;
-      align-items: center;
-      gap: 12px;
-      background: var(--surface);
-      border: 1px solid var(--accent);
-      border-radius: var(--radius);
-      padding: 12px 16px;
-      margin-bottom: 16px;
+      display: none; align-items: center; gap: 12px;
+      background: var(--surface); border: 1px solid var(--accent);
+      border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px;
       animation: slideDown .3s ease;
     }
     #install-banner.visible { display: flex; }
     @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-10px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity:0; transform:translateY(-10px); }
+      to   { opacity:1; transform:translateY(0); }
     }
-    #install-banner .ib-icon { font-size: 1.6rem; flex-shrink: 0; }
-    #install-banner .ib-text { flex: 1; }
+    #install-banner .ib-icon  { font-size: 1.6rem; flex-shrink: 0; }
+    #install-banner .ib-text  { flex: 1; }
     #install-banner .ib-title { font-weight: 600; font-size: .9rem; }
     #install-banner .ib-sub   { font-size: .75rem; color: var(--muted); }
     #install-banner .ib-btn {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      border-radius: 8px;
-      padding: 7px 14px;
-      font-size: .82rem;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      font-family: var(--font-b);
+      background: var(--accent); color: #000;
+      border: none; border-radius: 8px; padding: 7px 14px;
+      font-size: .82rem; font-weight: 600; white-space: nowrap;
     }
     #install-banner .ib-close {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 1.1rem;
-      line-height: 1;
-      padding: 2px 4px;
+      background: none; border: none;
+      color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 2px 4px;
     }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        HEADER
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .logo { display: flex; align-items: center; gap: 10px; }
     .logo-icon {
-      width: 40px; height: 40px;
-      background: var(--accent);
-      border-radius: 11px;
-      display: grid;
-      place-items: center;
-      font-size: 19px;
-      flex-shrink: 0;
+      width: 40px; height: 40px; background: var(--accent);
+      border-radius: 11px; display: grid; place-items: center;
+      font-size: 19px; flex-shrink: 0;
     }
     .logo h1 {
-      font-family: var(--font-d);
-      font-size: 1.35rem;
-      font-weight: 800;
-      letter-spacing: -.02em;
-      line-height: 1;
+      font-family: var(--font-d); font-size: 1.35rem; font-weight: 800;
+      letter-spacing: -.02em; line-height: 1;
     }
     .logo-sub {
-      font-size: .6rem;
-      font-weight: 500;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--accent);
-      display: block;
-      margin-top: 2px;
+      font-size: .6rem; font-weight: 500; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--accent); display: block; margin-top: 2px;
     }
-
-    /* Header stats (desktop) */
-    .header-stats {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .header-stats { display: flex; gap: 8px; flex-wrap: wrap; }
     .stat-chip {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 7px 14px;
-      font-size: .75rem;
-      color: var(--muted);
-      white-space: nowrap;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 14px; font-size: .75rem; color: var(--muted); white-space: nowrap;
     }
-    .stat-chip strong {
-      display: block;
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .stat-chip strong { display: block; font-size: 1rem; font-weight: 600; color: var(--text); }
 
-    /* ═══════════════════════════════════════════════════════
-       MOBILE SUMMARY BAR (shown on small screens)
-    ═══════════════════════════════════════════════════════ */
+    /* Icon buttons in header */
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: 9px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--muted); font-size: 1rem;
+      display: grid; place-items: center;
+      transition: var(--trans); flex-shrink: 0;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* ═══════════════════════════════════════════════════
+       MOBILE SUMMARY BAR
+    ═══════════════════════════════════════════════════ */
     .mobile-summary {
       display: none;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 8px; margin-bottom: 16px;
     }
     .ms-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 8px;
-      text-align: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 8px; text-align: center;
     }
     .ms-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
     .ms-value { font-family: var(--font-d); font-size: .95rem; font-weight: 800; margin-top: 2px; }
     .ms-value.expense { color: var(--danger); }
     .ms-value.income  { color: var(--accent); }
-    .ms-value.balance.pos { color: var(--accent); }
-    .ms-value.balance.neg { color: var(--danger); }
+    .ms-value.pos { color: var(--accent); }
+    .ms-value.neg { color: var(--danger); }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        MAIN LAYOUT GRID
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     .main-grid {
-      display: grid;
-      grid-template-columns: 310px 1fr;
-      gap: 16px;
-      align-items: start;
+      display: grid; grid-template-columns: 310px 1fr;
+      gap: 16px; align-items: start;
     }
     .sidebar { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        CARD
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px;
     }
     .card-title {
-      font-family: var(--font-d);
-      font-size: .72rem;
-      font-weight: 700;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 14px;
+      font-family: var(--font-d); font-size: .72rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
     }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        FORM
-    ═══════════════════════════════════════════════════════ */
-    .type-toggle {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
+    ═══════════════════════════════════════════════════ */
+    .type-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
     .type-btn {
-      flex: 1;
-      padding: 9px 6px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: transparent;
-      color: var(--muted);
-      font-family: var(--font-b);
-      font-size: .82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .18s;
+      flex: 1; padding: 9px 6px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: transparent; color: var(--muted);
+      font-size: .82rem; font-weight: 600; transition: var(--trans);
     }
-    .type-btn.active-expense {
-      background: rgba(248,113,113,.13);
-      border-color: var(--danger);
-      color: var(--danger);
-    }
-    .type-btn.active-income {
-      background: var(--accent-dim);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+    .type-btn.active-expense { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+    .type-btn.active-income  { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
     .field { margin-bottom: 10px; }
     .field label {
-      display: block;
-      font-size: .74rem;
-      font-weight: 500;
-      color: var(--muted);
-      margin-bottom: 4px;
-      letter-spacing: .04em;
+      display: block; font-size: .74rem; font-weight: 500;
+      color: var(--muted); margin-bottom: 4px; letter-spacing: .04em;
     }
     .field input,
-    .field select {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      color: var(--text);
-      font-family: var(--font-b);
-      font-size: .92rem;
-      transition: border-color .18s, box-shadow .18s;
-      outline: none;
-      -webkit-appearance: none;
-      appearance: none;
+    .field select,
+    .field textarea {
+      width: 100%; padding: 10px 12px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-size: .92rem; transition: border-color .18s, box-shadow .18s;
+      outline: none; -webkit-appearance: none; appearance: none;
     }
-    .field input::placeholder { color: var(--muted); }
+    .field textarea {
+      resize: vertical; min-height: 68px; max-height: 160px;
+      line-height: 1.5;
+    }
+    .field input::placeholder,
+    .field textarea::placeholder { color: var(--muted); }
     .field input:focus,
-    .field select:focus {
+    .field select:focus,
+    .field textarea:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(110,231,183,.13);
+      box-shadow: 0 0 0 3px var(--accent-dim);
     }
-    /* Coloured dot inside category select */
     .cat-wrap { position: relative; }
     .cat-dot {
-      position: absolute;
-      left: 11px; top: 50%;
+      position: absolute; left: 11px; top: 50%;
       transform: translateY(-50%);
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      pointer-events: none;
-      transition: background .18s;
+      width: 8px; height: 8px; border-radius: 50%;
+      pointer-events: none; transition: background .18s;
     }
     .cat-wrap select { padding-left: 27px; }
-
-    /* Validation */
     .field-error { font-size: .72rem; color: var(--danger); margin-top: 3px; display: none; }
     .field.invalid .field-error { display: block; }
     .field.invalid input,
     .field.invalid select { border-color: var(--danger); }
-
-    /* Add button */
     .add-btn {
       width: 100%; padding: 12px;
       background: var(--accent); color: #000;
       border: none; border-radius: 10px;
-      font-family: var(--font-b); font-size: .92rem; font-weight: 700;
-      cursor: pointer;
+      font-size: .92rem; font-weight: 700;
       transition: opacity .18s, transform .1s;
-      margin-top: 6px;
-      letter-spacing: .01em;
+      margin-top: 6px; letter-spacing: .01em;
     }
     .add-btn:hover  { opacity: .85; }
     .add-btn:active { transform: scale(.97); }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        TRANSACTION LIST
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
+    .tx-list-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
     .tx-list {
       display: flex; flex-direction: column; gap: 7px;
-      max-height: 300px; overflow-y: auto;
+      max-height: 310px; overflow-y: auto;
     }
     .tx-list::-webkit-scrollbar { width: 3px; }
     .tx-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
     .tx-item {
       display: flex; align-items: center; gap: 9px;
-      padding: 9px 11px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      animation: fadeUp .22s ease;
+      padding: 9px 11px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      animation: fadeUp .22s ease; cursor: pointer;
+      transition: border-color .18s;
     }
+    .tx-item:hover { border-color: var(--border-2); }
     @keyframes fadeUp {
       from { opacity:0; transform:translateY(-5px); }
       to   { opacity:1; transform:translateY(0); }
     }
-    .tx-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-    .tx-info { flex:1; min-width:0; }
-    .tx-reason {
-      font-size: .84rem; font-weight: 500;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .tx-meta { font-size: .7rem; color: var(--muted); }
-    .tx-amount { font-size: .88rem; font-weight: 600; flex-shrink:0; }
+    .tx-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-reason { font-size: .84rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: .7rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+    .tx-note-icon { font-size: .65rem; opacity: .7; }
+    .tx-amount { font-size: .88rem; font-weight: 600; flex-shrink: 0; }
     .tx-amount.expense { color: var(--danger); }
     .tx-amount.income  { color: var(--accent); }
     .tx-del {
       background: none; border: none; color: var(--muted);
-      cursor: pointer; font-size: .95rem; padding: 2px 5px;
-      border-radius: 4px; transition: color .15s; flex-shrink:0;
+      font-size: .95rem; padding: 4px 6px; border-radius: 4px;
+      transition: color .15s; flex-shrink: 0;
     }
     .tx-del:hover { color: var(--danger); }
-    .empty-state { text-align:center; padding:18px; color:var(--muted); font-size:.82rem; }
+    .empty-state { text-align: center; padding: 20px; color: var(--muted); font-size: .82rem; }
+    .empty-state-icon { font-size: 2rem; margin-bottom: 6px; opacity: .5; }
 
-    /* ═══════════════════════════════════════════════════════
+    /* Trash badge link */
+    .trash-link {
+      font-size: .72rem; color: var(--muted); background: none; border: none;
+      display: flex; align-items: center; gap: 4px; padding: 3px 0; transition: color .15s;
+    }
+    .trash-link:hover { color: var(--danger); }
+    .trash-badge {
+      background: var(--danger); color: #fff; font-size: .6rem;
+      border-radius: 10px; padding: 1px 5px; font-weight: 700;
+      display: none;
+    }
+    .trash-badge.has-items { display: inline; }
+
+    /* ═══════════════════════════════════════════════════
        CALENDAR
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     .cal-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
     }
     .month-title {
-      font-family: var(--font-d);
-      font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
+      font-family: var(--font-d); font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em;
     }
     .nav-btn {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 34px; height: 34px;
-      border-radius: 8px; font-size: 1rem;
-      cursor: pointer; display:grid; place-items:center;
-      transition: border-color .18s, background .18s;
+      background: var(--surface-2); border: 1px solid var(--border);
+      color: var(--text); width: 34px; height: 34px; border-radius: 8px;
+      font-size: 1rem; display: grid; place-items: center; transition: var(--trans);
     }
     .nav-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
-
-    /* Weekday labels */
     .weekdays {
-      display: grid; grid-template-columns: repeat(7,1fr);
-      gap:5px; margin-bottom:5px;
+      display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 5px;
     }
     .weekday {
-      text-align:center; font-size:.62rem; font-weight:600;
-      color:var(--muted); letter-spacing:.06em; text-transform:uppercase;
+      text-align: center; font-size: .62rem; font-weight: 600;
+      color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
     }
-
-    /* Day grid */
-    .days-grid {
-      display: grid; grid-template-columns: repeat(7,1fr); gap:5px;
-    }
+    .days-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
     .day-cell {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 7px 5px; min-height: 66px;
-      display: flex; flex-direction: column;
-      cursor: pointer; position: relative; overflow: hidden;
-      transition: border-color .18s, background .18s;
-      -webkit-tap-highlight-color: transparent;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 7px 5px; min-height: 66px;
+      display: flex; flex-direction: column; cursor: pointer; position: relative;
+      overflow: hidden; transition: var(--trans); -webkit-tap-highlight-color: transparent;
     }
     .day-cell:hover { border-color: var(--accent); background: var(--accent-dim); }
     .day-cell.today { border-color: var(--accent); }
     .day-cell.today .day-num::after {
       content: ''; display: inline-block;
-      width:4px; height:4px; border-radius:50%;
-      background: var(--accent); margin-left:3px; vertical-align:middle;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--accent); margin-left: 3px; vertical-align: middle;
     }
     .day-cell::after {
-      content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
     }
-    .day-cell.has-expense::after  { background: var(--danger); opacity:.7; }
-    .day-cell.has-income::after   { background: var(--accent); opacity:.7; }
-    .day-cell.has-both::after     {
-      background: linear-gradient(90deg, var(--danger) 50%, var(--accent) 50%);
-      opacity:.7;
+    .day-cell.has-expense::after  { background: var(--danger); opacity: .7; }
+    .day-cell.has-income::after   { background: var(--accent); opacity: .7; }
+    .day-cell.has-both::after {
+      background: linear-gradient(90deg, var(--danger) 50%, var(--accent) 50%); opacity: .7;
     }
-    .day-cell.empty-day {
-      background:transparent; border-color:transparent; pointer-events:none;
-    }
-    .day-num { font-size:.72rem; font-weight:600; color:var(--muted); margin-bottom:3px; }
-    .day-amount { font-size:.65rem; font-weight:500; margin-top:auto; }
-    .day-amount.exp { color:var(--danger); }
-    .day-amount.inc { color:var(--accent); }
+    .day-cell.empty-day { background: transparent; border-color: transparent; pointer-events: none; }
+    .day-num { font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+    .day-amount { font-size: .65rem; font-weight: 500; margin-top: auto; }
+    .day-amount.exp { color: var(--danger); }
+    .day-amount.inc { color: var(--accent); }
 
-    /* ═══════════════════════════════════════════════════════
-       MONTH SUMMARY ROW
-    ═══════════════════════════════════════════════════════ */
-    .summary-row {
-      display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px;
-    }
+    /* ═══════════════════════════════════════════════════
+       SUMMARY ROW
+    ═══════════════════════════════════════════════════ */
+    .summary-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 16px; }
     .sum-card {
-      background:var(--surface-2); border:1px solid var(--border);
-      border-radius:10px; padding:12px 10px; text-align:center;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 10px; text-align: center;
     }
-    .sum-label { font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:3px; }
-    .sum-value { font-family:var(--font-d); font-size:1.05rem; font-weight:800; }
-    .sum-value.expense { color:var(--danger); }
-    .sum-value.income  { color:var(--accent); }
-    .sum-value.pos     { color:var(--accent); }
-    .sum-value.neg     { color:var(--danger); }
+    .sum-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 3px; }
+    .sum-value { font-family: var(--font-d); font-size: 1.05rem; font-weight: 800; }
+    .sum-value.expense { color: var(--danger); }
+    .sum-value.income  { color: var(--accent); }
+    .sum-value.pos     { color: var(--accent); }
+    .sum-value.neg     { color: var(--danger); }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        CHART
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     .chart-wrap {
-      margin-top:16px; padding:14px;
-      background:var(--surface-2); border:1px solid var(--border); border-radius:11px;
+      margin-top: 16px; padding: 14px;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px;
     }
-    .chart-top {
-      display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
-    }
-    .chart-lbl { font-size:.7rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
-    .ctoggle { display:flex; gap:4px; }
+    .chart-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .chart-lbl { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .ctoggle { display: flex; gap: 4px; }
     .ctog-btn {
-      padding:4px 10px; border-radius:6px;
-      border:1px solid var(--border); background:transparent;
-      color:var(--muted); font-size:.7rem; font-family:var(--font-b);
-      cursor:pointer; transition:all .18s;
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: .7rem; transition: var(--trans);
     }
-    .ctog-btn.active {
-      background:var(--accent-dim); border-color:var(--accent); color:var(--accent);
-    }
-    #expenseChart { max-height:210px; }
+    .ctog-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    #expenseChart { max-height: 210px; }
 
-    /* ═══════════════════════════════════════════════════════
-       DAY DETAIL MODAL
-    ═══════════════════════════════════════════════════════ */
-    .modal-overlay {
-      display:none; position:fixed; inset:0;
-      background:rgba(0,0,0,.72); backdrop-filter:blur(5px);
-      z-index:100; place-items:center; padding:20px;
-    }
-    .modal-overlay.open { display:grid; }
-    .modal {
-      background:var(--surface); border:1px solid var(--border);
-      border-radius:var(--radius); padding:22px;
-      width:100%; max-width:400px;
-      animation: mIn .2s ease;
-      max-height: 80dvh; overflow-y: auto;
-    }
-    @keyframes mIn {
-      from { opacity:0; transform:scale(.94) translateY(14px); }
-      to   { opacity:1; transform:scale(1) translateY(0); }
-    }
-    .modal-head {
-      display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;
-    }
-    .modal-title { font-family:var(--font-d); font-size:1.05rem; font-weight:800; }
-    .modal-close {
-      background:none; border:none; color:var(--muted);
-      font-size:1.2rem; cursor:pointer; line-height:1; padding:2px 5px;
-      transition:color .15s;
-    }
-    .modal-close:hover { color:var(--text); }
-
-    /* ═══════════════════════════════════════════════════════
-       MOBILE FAB (Floating Add Button — bottom sheet trigger)
-    ═══════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       MOBILE FAB
+    ═══════════════════════════════════════════════════ */
     .fab {
       display: none;
       position: fixed;
       bottom: calc(20px + var(--safe-bottom));
       right: 20px;
       width: 56px; height: 56px;
-      background: var(--accent);
-      border-radius: 50%; border: none;
+      background: var(--accent); border-radius: 50%; border: none;
       font-size: 1.6rem; color: #000;
-      cursor: pointer; z-index: 50;
-      box-shadow: 0 4px 20px rgba(110,231,183,.35);
-      transition: transform .18s, box-shadow .18s;
-      display: grid; place-items: center;
+      z-index: 50; box-shadow: 0 4px 20px var(--accent-glow);
+      transition: transform .18s, box-shadow .18s; display: grid; place-items: center;
     }
     .fab:hover  { transform: scale(1.07); }
     .fab:active { transform: scale(.95); }
 
-    /* ═══════════════════════════════════════════════════════
-       MOBILE BOTTOM SHEET (form)
-    ═══════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       BOTTOM SHEET (mobile form)
+    ═══════════════════════════════════════════════════ */
     .sheet-overlay {
-      display:none; position:fixed; inset:0;
-      background:rgba(0,0,0,.65); backdrop-filter:blur(4px); z-index:90;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.65); backdrop-filter: blur(4px); z-index: 90;
     }
-    .sheet-overlay.open { display:block; }
+    .sheet-overlay.open { display: block; }
     .bottom-sheet {
-      position:fixed; bottom:0; left:0; right:0;
-      background:var(--surface); border-top:1px solid var(--border);
-      border-radius:18px 18px 0 0;
-      padding:20px 20px calc(20px + var(--safe-bottom));
-      z-index:91;
-      transform:translateY(100%);
-      transition:transform .3s cubic-bezier(.4,0,.2,1);
-      max-height: 90dvh; overflow-y: auto;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      border-radius: 18px 18px 0 0;
+      padding: 20px 20px calc(20px + var(--safe-bottom));
+      z-index: 91;
+      transform: translateY(100%);
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+      max-height: 92dvh; overflow-y: auto;
     }
-    .bottom-sheet.open { transform:translateY(0); }
+    .bottom-sheet.open { transform: translateY(0); }
     .sheet-handle {
-      width:40px; height:4px; border-radius:2px;
-      background:var(--border); margin:0 auto 16px;
+      width: 40px; height: 4px; border-radius: 2px;
+      background: var(--border); margin: 0 auto 16px;
     }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        TOAST
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     .toast {
-      position:fixed; bottom:calc(80px + var(--safe-bottom)); left:50%;
-      transform:translateX(-50%) translateY(30px);
-      background:var(--surface); border:1px solid var(--border);
-      border-radius:20px; padding:9px 20px;
-      font-size:.82rem; font-weight:500; z-index:200;
-      transition:transform .28s ease, opacity .28s ease;
-      opacity:0; pointer-events:none; white-space:nowrap;
+      position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 50%;
+      transform: translateX(-50%) translateY(30px);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 9px 20px;
+      font-size: .82rem; font-weight: 500; z-index: 500;
+      transition: transform .28s ease, opacity .28s ease;
+      opacity: 0; pointer-events: none; white-space: nowrap;
     }
-    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
-    .toast.success { border-color:var(--accent); color:var(--accent); }
-    .toast.error   { border-color:var(--danger); color:var(--danger); }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--accent); color: var(--accent); }
+    .toast.error   { border-color: var(--danger); color: var(--danger); }
+    .toast.info    { border-color: var(--warn);   color: var(--warn);   }
 
-    /* ═══════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
+       MODAL (Generic)
+    ═══════════════════════════════════════════════════ */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.72); backdrop-filter: blur(5px);
+      z-index: 200; place-items: center; padding: 20px;
+    }
+    .modal-overlay.open { display: grid; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px;
+      width: 100%; max-width: 420px;
+      animation: mIn .2s ease; max-height: 85dvh; overflow-y: auto;
+    }
+    @keyframes mIn {
+      from { opacity:0; transform:scale(.94) translateY(14px); }
+      to   { opacity:1; transform:scale(1) translateY(0); }
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    }
+    .modal-title { font-family: var(--font-d); font-size: 1.05rem; font-weight: 800; }
+    .modal-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 1.2rem; line-height: 1; padding: 2px 5px; transition: color .15s;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* ═══════════════════════════════════════════════════
+       DAY MODAL TRANSACTIONS
+    ═══════════════════════════════════════════════════ */
+    .day-tx-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 10px 12px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      margin-bottom: 8px; cursor: pointer;
+      transition: border-color .18s;
+    }
+    .day-tx-item:hover { border-color: var(--border-2); }
+    .day-tx-item:last-child { margin-bottom: 0; }
+
+    /* ═══════════════════════════════════════════════════
+       TRANSACTION DETAIL MODAL
+    ═══════════════════════════════════════════════════ */
+    .tx-detail-amount {
+      font-family: var(--font-d); font-size: 2rem; font-weight: 800;
+      text-align: center; margin: 8px 0 4px;
+    }
+    .tx-detail-amount.expense { color: var(--danger); }
+    .tx-detail-amount.income  { color: var(--accent); }
+    .tx-detail-meta {
+      text-align: center; color: var(--muted); font-size: .82rem; margin-bottom: 18px;
+    }
+    .tx-detail-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .tx-detail-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+    }
+    .tx-detail-label { font-size: .75rem; color: var(--muted); }
+    .tx-detail-val   { font-size: .88rem; font-weight: 500; }
+
+    /* Notes section */
+    .note-section { margin-top: 4px; }
+    .note-label {
+      font-size: .7rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .note-display {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 11px 13px;
+      font-size: .86rem; line-height: 1.6; white-space: pre-wrap;
+      color: var(--text); min-height: 60px;
+    }
+    .note-display.no-note { color: var(--muted); font-style: italic; }
+    .note-edit-area {
+      width: 100%; padding: 11px 13px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-size: .86rem; line-height: 1.6; resize: vertical;
+      min-height: 80px; outline: none; transition: border-color .18s, box-shadow .18s;
+    }
+    .note-edit-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .note-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-sm {
+      padding: 7px 14px; border-radius: 7px; font-size: .8rem; font-weight: 600;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      transition: var(--trans);
+    }
+    .btn-sm:hover { border-color: var(--border-2); color: var(--text); }
+    .btn-sm.primary {
+      background: var(--accent); color: #000; border-color: var(--accent);
+    }
+    .btn-sm.primary:hover { opacity: .85; }
+    .btn-sm.danger { color: var(--danger); border-color: var(--danger-dim); }
+    .btn-sm.danger:hover { background: var(--danger-dim); }
+
+    /* ═══════════════════════════════════════════════════
+       TRASH MODAL
+    ═══════════════════════════════════════════════════ */
+    .trash-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 10px 12px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+    }
+    .trash-item:last-child { margin-bottom: 0; }
+    .trash-item-info { flex: 1; min-width: 0; }
+    .trash-item-reason { font-size: .84rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .trash-item-meta { font-size: .72rem; color: var(--muted); }
+    .trash-item-actions { display: flex; gap: 5px; flex-shrink: 0; }
+    .trash-restore-btn, .trash-perm-btn {
+      padding: 5px 9px; border-radius: 6px;
+      font-size: .72rem; font-weight: 600; border: 1px solid;
+      transition: var(--trans);
+    }
+    .trash-restore-btn { border-color: var(--accent); color: var(--accent); background: transparent; }
+    .trash-restore-btn:hover { background: var(--accent-dim); }
+    .trash-perm-btn    { border-color: var(--danger-dim); color: var(--danger); background: transparent; }
+    .trash-perm-btn:hover { background: var(--danger-dim); }
+    .trash-empty-actions { display: flex; justify-content: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+    /* ═══════════════════════════════════════════════════
+       SETTINGS / ANALYTICS MODAL
+    ═══════════════════════════════════════════════════ */
+    .settings-section { margin-bottom: 20px; }
+    .settings-section-title {
+      font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+    }
+    .analytics-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
+    }
+    .analytics-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px;
+    }
+    .analytics-num {
+      font-family: var(--font-d); font-size: 1.4rem; font-weight: 800;
+      color: var(--accent);
+    }
+    .analytics-lbl { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+    .analytics-last { font-size: .72rem; color: var(--muted); margin-top: 6px; }
+
+    /* Firebase setup notice */
+    .firebase-notice {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px;
+      font-size: .78rem; color: var(--muted); line-height: 1.6;
+    }
+    .firebase-notice a { color: var(--accent); }
+    .firebase-notice code {
+      background: var(--bg); border-radius: 4px; padding: 1px 5px;
+      font-size: .75rem; color: var(--text);
+    }
+
+    .settings-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+    /* Danger zone */
+    .danger-zone {
+      background: var(--danger-dim); border: 1px solid rgba(248,113,113,.25);
+      border-radius: var(--radius-sm); padding: 12px;
+    }
+    .danger-zone p { font-size: .78rem; color: var(--muted); margin-bottom: 10px; }
+    .danger-zone .btn-sm.danger { background: transparent; }
+
+    /* ═══════════════════════════════════════════════════
        RESPONSIVE
-    ═══════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     @media (max-width: 900px) {
       .main-grid { grid-template-columns: 1fr; }
-      .sidebar   { order: 2; }            /* form goes below calendar */
+      .sidebar   { order: 2; }
       .cal-col   { order: 1; }
-      .header-stats { display: none; }    /* use mobile summary instead */
+      .header-stats { display: none; }
       .mobile-summary { display: grid; }
-      /* Hide desktop sidebar form — use FAB + bottom sheet instead */
       .sidebar .card:first-child { display: none; }
     }
-
     @media (max-width: 540px) {
-      .app { padding: 14px 12px 80px; }
+      .app { padding: 14px 12px 90px; }
       .days-grid { gap: 3px; }
       .day-cell  { min-height: 54px; padding: 5px 3px; border-radius: 7px; }
       .day-num   { font-size: .62rem; }
@@ -639,11 +670,12 @@
       .summary-row { gap: 6px; }
       .sum-value { font-size: .9rem; }
     }
-
     @media (min-width: 901px) {
-      /* On desktop, hide FAB and sheet */
       .fab { display: none !important; }
       .sheet-overlay, .bottom-sheet { display: none !important; }
+    }
+    @media (max-width: 900px) {
+      .fab { display: grid !important; }
     }
   </style>
 </head>
@@ -674,11 +706,14 @@
         <span class="logo-sub">PRO — Expense Tracker</span>
       </div>
     </div>
-    <!-- Desktop stats chips -->
-    <div class="header-stats">
-      <div class="stat-chip">Spent<strong id="hExp">₹0.00</strong></div>
-      <div class="stat-chip">Earned<strong id="hInc">₹0.00</strong></div>
-      <div class="stat-chip">Balance<strong id="hBal">₹0.00</strong></div>
+    <div class="header-right">
+      <div class="header-stats">
+        <div class="stat-chip">Spent<strong id="hExp">₹0.00</strong></div>
+        <div class="stat-chip">Earned<strong id="hInc">₹0.00</strong></div>
+        <div class="stat-chip">Balance<strong id="hBal">₹0.00</strong></div>
+      </div>
+      <button class="icon-btn" id="trashHeaderBtn" onclick="openTrashModal()" title="Trash / Recently Deleted">🗑️</button>
+      <button class="icon-btn" id="settingsBtn" onclick="openSettingsModal()" title="Settings &amp; Analytics">⚙️</button>
     </div>
   </header>
 
@@ -694,7 +729,7 @@
     </div>
     <div class="ms-card">
       <div class="ms-label">Balance</div>
-      <div class="ms-value balance pos" id="msBal">₹0</div>
+      <div class="ms-value pos" id="msBal">₹0</div>
     </div>
   </div>
 
@@ -704,16 +739,20 @@
     <!-- Sidebar (desktop) -->
     <div class="sidebar">
 
-      <!-- Add Transaction form (desktop only — hidden on mobile, use FAB) -->
+      <!-- Add Transaction form (desktop only) -->
       <div class="card" aria-label="Add transaction form">
         <div class="card-title">Add Transaction</div>
-        <!-- Reuses shared form markup via ID; JS reads from here on desktop -->
         <div id="desk-form-mount"></div>
       </div>
 
       <!-- Recent Transactions -->
       <div class="card">
-        <div class="card-title">Recent Transactions</div>
+        <div class="tx-list-header">
+          <div class="card-title" style="margin-bottom:0">Recent Transactions</div>
+          <button class="trash-link" onclick="openTrashModal()" title="Recently Deleted">
+            🗑️ Trash <span class="trash-badge" id="trashBadge">0</span>
+          </button>
+        </div>
         <div class="tx-list" id="txList" aria-live="polite"></div>
       </div>
 
@@ -787,25 +826,54 @@
 </div>
 
 <!-- ── Day Detail Modal ── -->
-<div class="modal-overlay" id="modalOverlay" role="dialog"
-  aria-modal="true" aria-labelledby="modalTitle">
+<div class="modal-overlay" id="dayModalOverlay" role="dialog" aria-modal="true" aria-labelledby="dayModalTitle">
   <div class="modal">
     <div class="modal-head">
-      <div class="modal-title" id="modalTitle"></div>
-      <button class="modal-close" id="modalClose" aria-label="Close">&#x2715;</button>
+      <div class="modal-title" id="dayModalTitle"></div>
+      <button class="modal-close" id="dayModalClose" aria-label="Close">&#x2715;</button>
     </div>
-    <div id="modalBody"></div>
+    <div id="dayModalBody"></div>
+  </div>
+</div>
+
+<!-- ── Transaction Detail Modal ── -->
+<div class="modal-overlay" id="txDetailOverlay" role="dialog" aria-modal="true" aria-labelledby="txDetailTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="txDetailTitle">Transaction Details</div>
+      <button class="modal-close" onclick="closeTxDetail()" aria-label="Close">&#x2715;</button>
+    </div>
+    <div id="txDetailBody"></div>
+  </div>
+</div>
+
+<!-- ── Trash Modal ── -->
+<div class="modal-overlay" id="trashOverlay" role="dialog" aria-modal="true" aria-labelledby="trashTitle">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title" id="trashTitle">🗑️ Recently Deleted</div>
+      <button class="modal-close" onclick="closeTrashModal()" aria-label="Close">&#x2715;</button>
+    </div>
+    <div id="trashBody"></div>
+  </div>
+</div>
+
+<!-- ── Settings / Analytics Modal ── -->
+<div class="modal-overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title" id="settingsTitle">⚙️ Settings &amp; Analytics</div>
+      <button class="modal-close" onclick="closeSettingsModal()" aria-label="Close">&#x2715;</button>
+    </div>
+    <div id="settingsBody"></div>
   </div>
 </div>
 
 <!-- ── Toast ── -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- ════════════════════════════════════════════════════════════
-     SHARED FORM TEMPLATE (cloned into desktop + mobile mounts)
-════════════════════════════════════════════════════════════ -->
+<!-- ── Shared Form Template ── -->
 <template id="formTpl">
-  <!-- Income / Expense toggle -->
   <div class="type-toggle" role="group" aria-label="Transaction type">
     <button class="type-btn active-expense" data-type="expense"
       onclick="setType('expense',this)" aria-pressed="true">− Expense</button>
@@ -835,6 +903,8 @@
         <option value="Shopping">🛍 Shopping</option>
         <option value="Bills">🧾 Bills</option>
         <option value="Health">❤️ Health</option>
+        <option value="Entertainment">🎭 Entertainment</option>
+        <option value="Education">📚 Education</option>
         <option value="Other">📦 Other</option>
       </select>
     </div>
@@ -845,78 +915,137 @@
     <input type="date" data-id="date" />
   </div>
 
+  <div class="field">
+    <label>Note <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+    <textarea data-id="note" placeholder="Add a note for this transaction…" rows="2"></textarea>
+  </div>
+
   <button class="add-btn" onclick="handleAddFromForm(this)">Add Transaction</button>
 </template>
 
 <script>
-/* ════════════════════════════════════════════════════════════
-   STATE & CONSTANTS
-════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════
+   CONSTANTS & CATEGORY COLORS
+══════════════════════════════════════════════════════ */
 const CAT_COLORS = {
   Food:'#6ee7b7', Travel:'#60a5fa', Shopping:'#f472b6',
-  Bills:'#fb923c', Health:'#a78bfa', Other:'#94a3b8'
+  Bills:'#fb923c', Health:'#a78bfa', Entertainment:'#e879f9',
+  Education:'#38bdf8', Other:'#94a3b8'
 };
 
-/* Migrate legacy key */
-(function() {
-  const old = localStorage.getItem('data');
-  if (old && !localStorage.getItem('pf_tx')) {
-    try {
+/* ══════════════════════════════════════════════════════
+   DATA MIGRATION (legacy key support)
+══════════════════════════════════════════════════════ */
+(function migrateLegacy() {
+  try {
+    const old = localStorage.getItem('data');
+    if (old && !localStorage.getItem('pf_tx')) {
       const parsed = JSON.parse(old);
       localStorage.setItem('pf_tx', JSON.stringify(
-        parsed.map(e => ({ ...e, type: e.type || 'expense', id: e.id || Date.now() }))
+        parsed.map(e => ({ ...e, type: e.type || 'expense', id: e.id || Date.now(), note: e.note || '' }))
       ));
-    } catch(e) {}
-  }
+    }
+  } catch(e) { console.warn('[PF] Migration error:', e); }
 })();
 
-let allTx       = JSON.parse(localStorage.getItem('pf_tx') || '[]');
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+let allTx       = JSON.parse(localStorage.getItem('pf_tx')    || '[]');
+let trashTx     = JSON.parse(localStorage.getItem('pf_trash') || '[]');
 let curDate     = new Date();
 let chartType   = 'doughnut';
 let chartInst   = null;
-let deferredPWA = null;   // BeforeInstallPromptEvent
+let deferredPWA = null;
 
-const save = () => localStorage.setItem('pf_tx', JSON.stringify(allTx));
-const fmt  = n  => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
-const esc  = s  => String(s)
+/* Ensure all tx have note field */
+allTx = allTx.map(t => ({ note: '', ...t }));
+
+/* ══════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════ */
+const save      = ()  => localStorage.setItem('pf_tx', JSON.stringify(allTx));
+const saveTrash = ()  => localStorage.setItem('pf_trash', JSON.stringify(trashTx));
+const fmt       = n   => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const todayStr  = ()  => new Date().toISOString().split('T')[0];
+const esc       = s   => String(s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
+   ANALYTICS — lightweight local tracking
+   For Firebase/Supabase integration see README.md
+══════════════════════════════════════════════════════ */
+const Analytics = {
+  KEY: 'pf_analytics',
+
+  _get() {
+    try {
+      return JSON.parse(localStorage.getItem(this.KEY) || '{}');
+    } catch { return {}; }
+  },
+
+  _set(data) {
+    try { localStorage.setItem(this.KEY, JSON.stringify(data)); } catch {}
+  },
+
+  /** Call once per app open */
+  recordOpen() {
+    const d = this._get();
+    d.opens       = (d.opens || 0) + 1;
+    d.lastOpened  = new Date().toISOString();
+
+    /* Unique users: fingerprint by localStorage existence + set date */
+    if (!d.firstSeen) d.firstSeen = new Date().toISOString();
+
+    /* Unique sessions per day */
+    const today = todayStr();
+    if (d.lastSessionDate !== today) {
+      d.uniqueDays = (d.uniqueDays || 0) + 1;
+      d.lastSessionDate = today;
+    }
+
+    this._set(d);
+  },
+
+  /** Call on PWA install */
+  recordInstall() {
+    const d = this._get();
+    if (!d.installed) {
+      d.installed    = true;
+      d.installedAt  = new Date().toISOString();
+      d.installs     = (d.installs || 0) + 1;
+    }
+    this._set(d);
+  },
+
+  getData() { return this._get(); }
+};
+
+/* Record this open */
+Analytics.recordOpen();
+
+/* ══════════════════════════════════════════════════════
    FORM: mount into desktop & mobile slots
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function mountForms() {
   ['desk-form-mount', 'mob-form-mount'].forEach(id => {
     const tpl   = document.getElementById('formTpl');
     const clone = tpl.content.cloneNode(true);
-    // Set today's date
     clone.querySelector('[data-id="date"]').value = todayStr();
-    // Init dot colour
     const dot = clone.querySelector('[data-id="catDot"]');
-    dot.style.background = CAT_COLORS['Food'];
+    if (dot) dot.style.background = CAT_COLORS['Food'];
     document.getElementById(id).appendChild(clone);
   });
 }
 
-function todayStr() { return new Date().toISOString().split('T')[0]; }
-
-/* Read values from whichever form is active (visible) */
-function activeForm() {
-  const isMobile = window.innerWidth <= 900;
-  const mount = document.getElementById(isMobile ? 'mob-form-mount' : 'desk-form-mount');
-  return mount;
-}
-
-function getField(form, id) { return form.querySelector(`[data-id="${id}"]`); }
-
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    TYPE TOGGLE
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function setType(type, clickedBtn) {
-  /* Update ALL form mounts so they stay in sync */
   document.querySelectorAll('.type-btn').forEach(btn => {
     const t = btn.getAttribute('data-type');
     btn.className = 'type-btn' + (t === type ? ` active-${t}` : '');
-    btn.setAttribute('aria-pressed', t === type);
+    btn.setAttribute('aria-pressed', t === type ? 'true' : 'false');
   });
 }
 
@@ -926,25 +1055,24 @@ function currentType() {
   return btn ? btn.getAttribute('data-type') : 'expense';
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    CATEGORY DOT SYNC
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function syncCatDot(selectEl) {
-  const cat = selectEl.value;
+  const cat  = selectEl.value;
   const wrap = selectEl.closest('.cat-wrap');
-  wrap.querySelector('.cat-dot').style.background = CAT_COLORS[cat] || CAT_COLORS.Other;
+  if (wrap) wrap.querySelector('.cat-dot').style.background = CAT_COLORS[cat] || CAT_COLORS.Other;
 }
 
-/* ════════════════════════════════════════════════════════════
-   VALIDATION
-════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════
+   FORM VALIDATION
+══════════════════════════════════════════════════════ */
 function validateForm(form) {
   let ok = true;
-
   const rField = form.querySelector('[data-field="reason"]');
   const aField = form.querySelector('[data-field="amount"]');
-  const rInput = getField(form, 'reason');
-  const aInput = getField(form, 'amount');
+  const rInput = form.querySelector('[data-id="reason"]');
+  const aInput = form.querySelector('[data-id="amount"]');
 
   rField.classList.remove('invalid');
   aField.classList.remove('invalid');
@@ -956,66 +1084,269 @@ function validateForm(form) {
   return ok;
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    ADD TRANSACTION
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function handleAddFromForm(btn) {
-  const form = btn.closest('[id$="-form-mount"]') || btn.closest('[id$="mount"]') ||
-               btn.closest('.bottom-sheet') || btn.closest('.card');
-
-  /* Determine which mounted form this button belongs to */
   const mount = btn.closest('#desk-form-mount') || btn.closest('#mob-form-mount');
   if (!mount) return;
-
   if (!validateForm(mount)) return;
 
-  const reason   = getField(mount, 'reason').value.trim();
-  const amount   = parseFloat(getField(mount, 'amount').value);
-  const category = getField(mount, 'category').value;
-  const date     = getField(mount, 'date').value || todayStr();
+  const reason   = mount.querySelector('[data-id="reason"]').value.trim();
+  const amount   = parseFloat(mount.querySelector('[data-id="amount"]').value);
+  const category = mount.querySelector('[data-id="category"]').value;
+  const date     = mount.querySelector('[data-id="date"]').value || todayStr();
+  const note     = (mount.querySelector('[data-id="note"]')?.value || '').trim();
   const type     = currentType();
 
-  allTx.push({ id: Date.now(), reason, amount, category, date, type });
+  const tx = { id: Date.now(), reason, amount, category, date, type, note, createdAt: new Date().toISOString() };
+  allTx.push(tx);
   save();
 
-  /* Reset form */
-  getField(mount, 'reason').value = '';
-  getField(mount, 'amount').value = '';
-  getField(mount, 'date').value   = todayStr();
+  /* Reset form fields */
+  mount.querySelector('[data-id="reason"]').value = '';
+  mount.querySelector('[data-id="amount"]').value = '';
+  mount.querySelector('[data-id="date"]').value   = todayStr();
+  const noteEl = mount.querySelector('[data-id="note"]');
+  if (noteEl) noteEl.value = '';
   mount.querySelectorAll('.field').forEach(f => f.classList.remove('invalid'));
 
-  /* Close bottom sheet on mobile */
   closeSheet();
-
   renderAll();
   showToast(type === 'expense' ? 'Expense added ✓' : 'Income recorded ✓', 'success');
 }
 
-/* ════════════════════════════════════════════════════════════
-   DELETE
-════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════
+   DELETE → MOVE TO TRASH
+══════════════════════════════════════════════════════ */
 function deleteTx(id) {
-  allTx = allTx.filter(t => t.id !== id);
+  const idx = allTx.findIndex(t => t.id === id);
+  if (idx === -1) return;
+
+  const tx = allTx[idx];
+  tx.deletedAt = new Date().toISOString();
+  trashTx.unshift(tx);                     // newest first
+  allTx.splice(idx, 1);
   save();
+  saveTrash();
+
   renderAll();
-  closeModal();
-  showToast('Entry deleted', 'error');
+  closeDayModal();
+  closeTxDetail();
+  showToast('Moved to trash — tap to undo', 'info');
+
+  /* Auto-purge trash older than 30 days */
+  purgeOldTrash();
+  updateTrashBadge();
 }
 
-/* ════════════════════════════════════════════════════════════
+function purgeOldTrash() {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  trashTx = trashTx.filter(t => new Date(t.deletedAt).getTime() > cutoff);
+  saveTrash();
+}
+
+function updateTrashBadge() {
+  const badge = document.getElementById('trashBadge');
+  if (!badge) return;
+  badge.textContent = trashTx.length;
+  badge.classList.toggle('has-items', trashTx.length > 0);
+}
+
+/* ══════════════════════════════════════════════════════
+   TRASH MODAL
+══════════════════════════════════════════════════════ */
+function openTrashModal() {
+  renderTrashModal();
+  document.getElementById('trashOverlay').classList.add('open');
+}
+
+function closeTrashModal() {
+  document.getElementById('trashOverlay').classList.remove('open');
+}
+
+function renderTrashModal() {
+  const body = document.getElementById('trashBody');
+
+  if (!trashTx.length) {
+    body.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🗑️</div>
+        <p>Trash is empty</p>
+        <p style="font-size:.75rem;margin-top:4px">Deleted items appear here and are auto-removed after 30 days.</p>
+      </div>`;
+    return;
+  }
+
+  const items = trashTx.map(t => {
+    const color = CAT_COLORS[t.category] || CAT_COLORS.Other;
+    const sign  = t.type === 'income' ? '+' : '−';
+    const delDate = new Date(t.deletedAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+    return `
+      <div class="trash-item">
+        <div class="tx-dot" style="background:${color}"></div>
+        <div class="trash-item-info">
+          <div class="trash-item-reason">${esc(t.reason)}</div>
+          <div class="trash-item-meta">${t.date} · ${t.category} · Deleted ${delDate}</div>
+        </div>
+        <div class="tx-amount ${t.type}" style="font-size:.82rem;margin-right:6px">${sign}${fmt(t.amount)}</div>
+        <div class="trash-item-actions">
+          <button class="trash-restore-btn" onclick="restoreTx(${t.id})">↩ Restore</button>
+          <button class="trash-perm-btn" onclick="permDeleteTx(${t.id})">✕ Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  body.innerHTML = items + `
+    <div class="trash-empty-actions">
+      <button class="btn-sm danger" onclick="emptyTrash()">Empty Trash (${trashTx.length})</button>
+    </div>`;
+}
+
+function restoreTx(id) {
+  const idx = trashTx.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  const tx = trashTx[idx];
+  delete tx.deletedAt;
+  allTx.push(tx);
+  trashTx.splice(idx, 1);
+  save(); saveTrash();
+  renderAll();
+  renderTrashModal();
+  updateTrashBadge();
+  showToast('Transaction restored ✓', 'success');
+}
+
+function permDeleteTx(id) {
+  if (!confirm('Permanently delete this transaction? This cannot be undone.')) return;
+  trashTx = trashTx.filter(t => t.id !== id);
+  saveTrash();
+  renderTrashModal();
+  updateTrashBadge();
+  showToast('Permanently deleted', 'error');
+}
+
+function emptyTrash() {
+  if (!confirm(`Permanently delete all ${trashTx.length} item(s)? This cannot be undone.`)) return;
+  trashTx = [];
+  saveTrash();
+  renderTrashModal();
+  updateTrashBadge();
+  showToast('Trash emptied', 'error');
+}
+
+/* ══════════════════════════════════════════════════════
+   TRANSACTION DETAIL MODAL (with notes)
+══════════════════════════════════════════════════════ */
+let activeTxId = null;
+
+function openTxDetail(id) {
+  activeTxId = id;
+  renderTxDetail();
+  document.getElementById('txDetailOverlay').classList.add('open');
+}
+
+function closeTxDetail() {
+  document.getElementById('txDetailOverlay').classList.remove('open');
+  activeTxId = null;
+}
+
+function renderTxDetail() {
+  const tx = allTx.find(t => t.id === activeTxId);
+  if (!tx) { closeTxDetail(); return; }
+
+  const color = CAT_COLORS[tx.category] || CAT_COLORS.Other;
+  const sign  = tx.type === 'income' ? '+' : '−';
+  const hasNote = tx.note && tx.note.trim().length > 0;
+
+  document.getElementById('txDetailBody').innerHTML = `
+    <div class="tx-detail-amount ${tx.type}">${sign}${fmt(tx.amount)}</div>
+    <div class="tx-detail-meta">${tx.reason}</div>
+
+    <div class="tx-detail-rows">
+      <div class="tx-detail-row">
+        <span class="tx-detail-label">Category</span>
+        <span class="tx-detail-val">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:5px"></span>
+          ${esc(tx.category)}
+        </span>
+      </div>
+      <div class="tx-detail-row">
+        <span class="tx-detail-label">Date</span>
+        <span class="tx-detail-val">${tx.date}</span>
+      </div>
+      <div class="tx-detail-row">
+        <span class="tx-detail-label">Type</span>
+        <span class="tx-detail-val" style="color:${tx.type==='income'?'var(--accent)':'var(--danger)'}">
+          ${tx.type === 'income' ? '↑ Income' : '↓ Expense'}
+        </span>
+      </div>
+    </div>
+
+    <div class="note-section">
+      <div class="note-label">📝 Note</div>
+      <div id="noteDisplay" class="${hasNote ? '' : 'no-note'} note-display">
+        ${hasNote ? esc(tx.note) : 'No note added'}
+      </div>
+      <div id="noteEditWrap" style="display:none">
+        <textarea id="noteEditArea" class="note-edit-area" placeholder="Add a note…" rows="3">${esc(tx.note || '')}</textarea>
+        <div class="note-actions">
+          <button class="btn-sm" onclick="cancelNoteEdit()">Cancel</button>
+          <button class="btn-sm primary" onclick="saveNote()">Save Note</button>
+        </div>
+      </div>
+      <div class="note-actions" id="noteViewActions" style="margin-top:8px">
+        <button class="btn-sm" onclick="startNoteEdit()">✏️ ${hasNote ? 'Edit' : 'Add'} Note</button>
+        <button class="btn-sm danger" onclick="deleteTx(${tx.id})">🗑 Move to Trash</button>
+      </div>
+    </div>`;
+}
+
+function startNoteEdit() {
+  document.getElementById('noteDisplay').style.display      = 'none';
+  document.getElementById('noteViewActions').style.display  = 'none';
+  document.getElementById('noteEditWrap').style.display     = 'block';
+  document.getElementById('noteEditArea').focus();
+}
+
+function cancelNoteEdit() {
+  document.getElementById('noteDisplay').style.display     = '';
+  document.getElementById('noteViewActions').style.display = '';
+  document.getElementById('noteEditWrap').style.display    = 'none';
+}
+
+function saveNote() {
+  const tx = allTx.find(t => t.id === activeTxId);
+  if (!tx) return;
+  const newNote = (document.getElementById('noteEditArea')?.value || '').trim();
+  tx.note = newNote;
+  save();
+  renderTxDetail();
+  /* Also refresh any open day modal */
+  const dayOverlay = document.getElementById('dayModalOverlay');
+  if (dayOverlay.classList.contains('open')) {
+    const title = document.getElementById('dayModalTitle').textContent;
+    /* Re-render day modal content to update note icon */
+    renderAll();
+  }
+  showToast(newNote ? 'Note saved ✓' : 'Note removed', 'success');
+}
+
+/* ══════════════════════════════════════════════════════
    RENDER ALL
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function renderAll() {
   renderCalendar();
   renderTxList();
   renderChart();
   updateSummary();
   updateHeaderStats();
+  updateTrashBadge();
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    CALENDAR
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function renderCalendar() {
   const month = curDate.getMonth();
   const year  = curDate.getFullYear();
@@ -1024,7 +1355,6 @@ function renderCalendar() {
   document.getElementById('monthYear').textContent =
     curDate.toLocaleString('default', { month:'long' }) + ' ' + year;
 
-  /* Build day totals */
   const dayExp = {}, dayInc = {};
   allTx.forEach(t => {
     const [y, m, d] = t.date.split('-').map(Number);
@@ -1040,7 +1370,6 @@ function renderCalendar() {
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  /* Blank leading cells */
   for (let i = 0; i < firstDay; i++) {
     const b = document.createElement('div');
     b.className = 'day-cell empty-day';
@@ -1048,14 +1377,12 @@ function renderCalendar() {
     grid.appendChild(b);
   }
 
-  /* Day cells */
   for (let d = 1; d <= daysInMonth; d++) {
     const cell = document.createElement('div');
     cell.className = 'day-cell';
     cell.setAttribute('role', 'gridcell');
     cell.setAttribute('tabindex', '0');
-    cell.setAttribute('aria-label',
-      `${d} ${curDate.toLocaleString('default',{month:'long'})} ${year}`);
+    cell.setAttribute('aria-label', `${d} ${curDate.toLocaleString('default',{month:'long'})} ${year}`);
 
     if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear())
       cell.classList.add('today');
@@ -1070,7 +1397,7 @@ function renderCalendar() {
     if (hasI) html += `<div class="day-amount inc">${fmt(dayInc[d])}</div>`;
     cell.innerHTML = html;
 
-    const cap = d; // closure capture
+    const cap = d;
     cell.addEventListener('click', () => openDayModal(year, month, cap));
     cell.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayModal(year, month, cap); }
@@ -1080,9 +1407,9 @@ function renderCalendar() {
   }
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    SUMMARY
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function getMonthTotals(month, year) {
   let exp = 0, inc = 0;
   allTx.forEach(t => {
@@ -1113,56 +1440,60 @@ function updateHeaderStats() {
   document.getElementById('hExp').textContent = fmt(exp);
   document.getElementById('hInc').textContent = fmt(inc);
   const hb = document.getElementById('hBal');
-  hb.textContent = fmt(Math.abs(bal));
-  hb.style.color = bal >= 0 ? 'var(--accent)' : 'var(--danger)';
+  hb.textContent  = fmt(Math.abs(bal));
+  hb.style.color  = bal >= 0 ? 'var(--accent)' : 'var(--danger)';
 
-  /* Mobile summary */
   document.getElementById('msExp').textContent = fmt(exp);
   document.getElementById('msInc').textContent = fmt(inc);
   const mb = document.getElementById('msBal');
   mb.textContent = fmt(Math.abs(bal));
-  mb.className   = 'ms-value balance ' + (bal >= 0 ? 'pos' : 'neg');
+  mb.className   = 'ms-value ' + (bal >= 0 ? 'pos' : 'neg');
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    TRANSACTION LIST
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function renderTxList() {
   const month = curDate.getMonth(), year = curDate.getFullYear();
   const monthTx = allTx
     .filter(t => { const [y,m] = t.date.split('-').map(Number); return m-1===month && y===year; })
     .sort((a,b) => b.id - a.id)
-    .slice(0, 25);
+    .slice(0, 30);
 
   const list = document.getElementById('txList');
   list.innerHTML = '';
 
   if (!monthTx.length) {
-    list.innerHTML = '<div class="empty-state">No transactions this month</div>';
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <p>No transactions this month</p>
+    </div>`;
     return;
   }
 
   monthTx.forEach(t => {
     const item  = document.createElement('div');
     item.className = 'tx-item';
+    item.setAttribute('title', 'Click to view details');
     const color = CAT_COLORS[t.category] || CAT_COLORS.Other;
     const sign  = t.type === 'income' ? '+' : '−';
+    const hasNote = t.note && t.note.trim();
     item.innerHTML = `
       <div class="tx-dot" style="background:${color}"></div>
       <div class="tx-info">
         <div class="tx-reason">${esc(t.reason)}</div>
-        <div class="tx-meta">${t.date} · ${t.category}</div>
+        <div class="tx-meta">${t.date} · ${t.category}${hasNote ? ' <span class="tx-note-icon">📝</span>' : ''}</div>
       </div>
       <div class="tx-amount ${t.type}">${sign}${fmt(t.amount)}</div>
-      <button class="tx-del" onclick="deleteTx(${t.id})" aria-label="Delete ${esc(t.reason)}">✕</button>
-    `;
+      <button class="tx-del" onclick="event.stopPropagation();deleteTx(${t.id})" aria-label="Delete ${esc(t.reason)}">✕</button>`;
+    item.addEventListener('click', () => openTxDetail(t.id));
     list.appendChild(item);
   });
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    CHART
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function setChartType(type) {
   chartType = type;
   document.getElementById('ctD').className = 'ctog-btn' + (type==='doughnut' ? ' active' : '');
@@ -1219,50 +1550,141 @@ function renderChart() {
   });
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    DAY MODAL
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function openDayModal(year, month, day) {
   const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   const dayTx   = allTx.filter(t => t.date === dateStr);
 
-  document.getElementById('modalTitle').textContent =
+  document.getElementById('dayModalTitle').textContent =
     `${day} ${new Date(year,month).toLocaleString('default',{month:'long'})} ${year}`;
 
-  const body = document.getElementById('modalBody');
+  const body = document.getElementById('dayModalBody');
   if (!dayTx.length) {
-    body.innerHTML = '<div class="empty-state">No transactions on this day.</div>';
+    body.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No transactions on this day.</p></div>';
   } else {
     body.innerHTML = dayTx.map(t => {
-      const color = CAT_COLORS[t.category] || CAT_COLORS.Other;
-      const sign  = t.type === 'income' ? '+' : '−';
+      const color  = CAT_COLORS[t.category] || CAT_COLORS.Other;
+      const sign   = t.type === 'income' ? '+' : '−';
+      const hasNote = t.note && t.note.trim();
       return `
-        <div class="tx-item" style="margin-bottom:8px">
+        <div class="day-tx-item" onclick="openFromDayModal(${t.id})" title="Tap to view details">
           <div class="tx-dot" style="background:${color}"></div>
           <div class="tx-info">
             <div class="tx-reason">${esc(t.reason)}</div>
-            <div class="tx-meta">${t.category}</div>
+            <div class="tx-meta">${t.category}${hasNote ? ' · 📝' : ''}</div>
           </div>
           <div class="tx-amount ${t.type}">${sign}${fmt(t.amount)}</div>
-          <button class="tx-del" onclick="deleteTx(${t.id})" aria-label="Delete ${esc(t.reason)}">✕</button>
+          <button class="tx-del" onclick="event.stopPropagation();deleteTx(${t.id})" aria-label="Delete">✕</button>
         </div>`;
     }).join('');
   }
-  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('dayModalOverlay').classList.add('open');
 }
 
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
+function openFromDayModal(id) {
+  closeDayModal();
+  setTimeout(() => openTxDetail(id), 60);
 }
 
-document.getElementById('modalClose').addEventListener('click', closeModal);
-document.getElementById('modalOverlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('modalOverlay')) closeModal();
-});
+function closeDayModal() {
+  document.getElementById('dayModalOverlay').classList.remove('open');
+}
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
+   SETTINGS / ANALYTICS MODAL
+══════════════════════════════════════════════════════ */
+function openSettingsModal() {
+  renderSettingsModal();
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+function renderSettingsModal() {
+  const analytics = Analytics.getData();
+  const opens       = analytics.opens || 0;
+  const installs    = analytics.installed ? 1 : 0;
+  const uniqueDays  = analytics.uniqueDays || 0;
+  const lastOpened  = analytics.lastOpened
+    ? new Date(analytics.lastOpened).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' })
+    : 'N/A';
+  const firstSeen   = analytics.firstSeen
+    ? new Date(analytics.firstSeen).toLocaleDateString('en-IN', { dateStyle:'medium' })
+    : 'N/A';
+  const installedAt = analytics.installedAt
+    ? new Date(analytics.installedAt).toLocaleDateString('en-IN', { dateStyle:'medium' })
+    : '—';
+
+  document.getElementById('settingsBody').innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-title">📊 App Analytics (Local)</div>
+      <div class="analytics-grid">
+        <div class="analytics-card">
+          <div class="analytics-num">${opens}</div>
+          <div class="analytics-lbl">Total App Opens</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-num">${uniqueDays}</div>
+          <div class="analytics-lbl">Active Days</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-num">${allTx.length}</div>
+          <div class="analytics-lbl">Total Transactions</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-num">${trashTx.length}</div>
+          <div class="analytics-lbl">Items in Trash</div>
+        </div>
+      </div>
+      <div class="analytics-last">📅 First seen: ${firstSeen}</div>
+      <div class="analytics-last">🕐 Last opened: ${lastOpened}</div>
+      <div class="analytics-last">📲 PWA installed: ${installs ? 'Yes — ' + installedAt : 'Not yet'}</div>
+    </div>
+
+    <hr class="settings-divider" />
+
+    <div class="settings-section">
+      <div class="settings-section-title">🔥 Firebase Analytics (Optional)</div>
+      <div class="firebase-notice">
+        To track real installs/users across all devices, add Firebase:<br><br>
+        1. Create a project at <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a><br>
+        2. Enable <strong>Analytics</strong> + <strong>Firestore</strong> (free Spark plan)<br>
+        3. In <code>index.html</code>, add the Firebase SDK before <code>&lt;/body&gt;</code><br>
+        4. Call <code>logEvent(analytics, 'app_open')</code> in <code>Analytics.recordOpen()</code><br>
+        5. Store install events in a Firestore collection <code>installs/{deviceId}</code><br><br>
+        See <strong>README.md</strong> for the complete Firebase integration guide.
+      </div>
+    </div>
+
+    <hr class="settings-divider" />
+
+    <div class="settings-section">
+      <div class="settings-section-title">⚠️ Danger Zone</div>
+      <div class="danger-zone">
+        <p>These actions are irreversible. Your data will be permanently deleted.</p>
+        <button class="btn-sm danger" onclick="clearAllData()">🗑 Clear All Data</button>
+      </div>
+    </div>`;
+}
+
+function clearAllData() {
+  if (!confirm('Delete ALL transactions and trash? This cannot be undone.')) return;
+  if (!confirm('Are you absolutely sure? All your financial data will be lost.')) return;
+  allTx   = [];
+  trashTx = [];
+  save(); saveTrash();
+  renderAll();
+  closeSettingsModal();
+  showToast('All data cleared', 'error');
+}
+
+/* ══════════════════════════════════════════════════════
    BOTTOM SHEET (mobile FAB)
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function openSheet() {
   document.getElementById('sheetOverlay').classList.add('open');
   document.getElementById('bottomSheet').classList.add('open');
@@ -1275,9 +1697,9 @@ function closeSheet() {
 document.getElementById('fabBtn').addEventListener('click', openSheet);
 document.getElementById('sheetOverlay').addEventListener('click', closeSheet);
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    MONTH NAVIGATION
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 document.getElementById('prevBtn').addEventListener('click', () => {
   curDate.setMonth(curDate.getMonth() - 1); renderAll();
 });
@@ -1285,28 +1707,50 @@ document.getElementById('nextBtn').addEventListener('click', () => {
   curDate.setMonth(curDate.getMonth() + 1); renderAll();
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    KEYBOARD SHORTCUTS
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeModal(); closeSheet(); }
+  if (e.key === 'Escape') {
+    closeDayModal();
+    closeTxDetail();
+    closeSheet();
+    closeTrashModal();
+    closeSettingsModal();
+  }
 });
 
-/* ════════════════════════════════════════════════════════════
+/* Close modals on overlay click */
+document.getElementById('dayModalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('dayModalOverlay')) closeDayModal();
+});
+document.getElementById('txDetailOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('txDetailOverlay')) closeTxDetail();
+});
+document.getElementById('trashOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('trashOverlay')) closeTrashModal();
+});
+document.getElementById('settingsOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('settingsOverlay')) closeSettingsModal();
+});
+
+document.getElementById('dayModalClose').addEventListener('click', closeDayModal);
+
+/* ══════════════════════════════════════════════════════
    TOAST
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 let toastTimer;
-function showToast(msg, type='success') {
+function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   clearTimeout(toastTimer);
   t.textContent = msg;
   t.className   = `toast ${type} show`;
-  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2800);
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    OFFLINE DETECTION
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function updateOnlineStatus() {
   const banner = document.getElementById('offline-banner');
   if (!navigator.onLine) banner.classList.add('visible');
@@ -1315,14 +1759,12 @@ function updateOnlineStatus() {
 window.addEventListener('online',  updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    PWA INSTALL PROMPT
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPWA = e;
-
-  /* Don't show if user already dismissed */
   if (!localStorage.getItem('pf_install_dismissed')) {
     document.getElementById('install-banner').classList.add('visible');
   }
@@ -1332,7 +1774,10 @@ document.getElementById('installBtn').addEventListener('click', async () => {
   if (!deferredPWA) return;
   deferredPWA.prompt();
   const { outcome } = await deferredPWA.userChoice;
-  if (outcome === 'accepted') showToast('App installed! 🎉', 'success');
+  if (outcome === 'accepted') {
+    Analytics.recordInstall();
+    showToast('App installed! 🎉', 'success');
+  }
   deferredPWA = null;
   document.getElementById('install-banner').classList.remove('visible');
 });
@@ -1343,13 +1788,14 @@ document.getElementById('installDismiss').addEventListener('click', () => {
 });
 
 window.addEventListener('appinstalled', () => {
+  Analytics.recordInstall();
   document.getElementById('install-banner').classList.remove('visible');
   showToast('PennyFlow installed ✓', 'success');
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    SERVICE WORKER REGISTRATION
-════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
@@ -1358,12 +1804,13 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    INIT
-════════════════════════════════════════════════════════════ */
-mountForms();          // Clone form into desktop + mobile slots
-updateOnlineStatus();  // Check initial network state
-renderAll();           // First paint
+══════════════════════════════════════════════════════ */
+mountForms();
+updateOnlineStatus();
+purgeOldTrash();
+renderAll();
 </script>
 
 </body>
